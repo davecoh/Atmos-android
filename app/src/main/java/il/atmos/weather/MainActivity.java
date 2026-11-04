@@ -9,9 +9,11 @@ import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 public class MainActivity extends Activity {
  private WebView view;
- @Override public void onCreate(Bundle b){ super.onCreate(b); view=new WebView(this);setContentView(view); view.getSettings().setJavaScriptEnabled(true);view.getSettings().setDomStorageEnabled(true);
+ private IMSNative ims;
+ @Override public void onCreate(Bundle b){ super.onCreate(b); view=new WebView(this);setContentView(view); view.getSettings().setJavaScriptEnabled(true);view.getSettings().setDomStorageEnabled(true);ims = new IMSNative(this,view);view.addJavascriptInterface(ims,"AtmosIMS");
  WebViewAssetLoader loader=new WebViewAssetLoader.Builder().addPathHandler("/assets/",new WebViewAssetLoader.AssetsPathHandler(this)).build();
  view.setWebViewClient(new WebViewClientCompat(){@Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){return loader.shouldInterceptRequest(r.getUrl());}});
  view.setWebChromeClient(new WebChromeClient());view.loadUrl("https://appassets.androidplatform.net/assets/index.html");}
+ @Override protected void onDestroy(){if(ims!=null)ims.shutdown();if(view!=null)view.destroy();super.onDestroy();}
  @Override public void onBackPressed(){if(view.canGoBack())view.goBack();else super.onBackPressed();}
 }
