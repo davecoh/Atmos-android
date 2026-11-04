@@ -203,7 +203,7 @@ async function send(raw){
  if(!getNative()?.connected()){messages('assistant','בוא נתחבר ל-ChatGPT, ואז נדבר על מזג האוויר ☀️');return;}
  if(!model()){messages('assistant','חסר לי מודל לשיחה. בוא ננסה להתחבר שוב 🙂');return;}
  busy=true;$('chatSend').disabled=true;
- const bubble=messages('assistant','רגע, מציץ בעננים ☁️');
+ const bubble=messages('assistant','רגע, מציץ בעננים ☁️');bubble.classList.add('loading');
  try{
   const now=isoLocal(new Date());
   const historical=isHistoricalQuestion(fullQuestion);
@@ -263,7 +263,7 @@ async function send(raw){
   history.push({role:'assistant',text:answer});
   history=history.slice(-10);
  }catch(e){const message='השאילתה לא הושלמה: '+e.message;bubble.textContent=message;history.push({role:'assistant',text:message});history=history.slice(-10);}
- finally{busy=false;$('chatSend').disabled=false;}
+ finally{bubble.classList.remove('loading');busy=false;$('chatSend').disabled=false;}
 }
 window.AtmosGPTChat={setup,send};
 })();
