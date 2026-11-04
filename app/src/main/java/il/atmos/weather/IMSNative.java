@@ -16,6 +16,8 @@ import android.widget.FrameLayout;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +41,17 @@ public class IMSNative {
     IMSNative(Activity activity, WebView web) {
         this.activity=activity;
         this.web=web;
+        provisionFromBuild();
     }
+    private void provisionFromBuild(){
+        if(!token().isEmpty())return;
+        try(InputStream in=activity.getAssets().open("ims-bootstrap.txt");
+            BufferedReader reader=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8))){
+            String configured=reader.readLine();
+            if(configured!=null && configured.trim().matches("[a-zA-Z0-9_-]{20,256}"))save(configured.trim());
+        }catch(Exception ignored){ /* Without a build secret the history API remains unavailable. */ }
+    }
+
 
     private String token() {
         try {
