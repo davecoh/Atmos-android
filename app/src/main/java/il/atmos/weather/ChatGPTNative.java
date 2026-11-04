@@ -127,7 +127,8 @@ public final class ChatGPTNative {
         Socket sock=server.accept();sock.setSoTimeout(15000);
         BufferedReader reader=new BufferedReader(new InputStreamReader(sock.getInputStream(),StandardCharsets.UTF_8));
         String first=reader.readLine();if(first==null||!first.startsWith("GET /auth/callback?"))throw new Exception("Invalid OAuth callback");
-        String headerLine;while((headerLine=reader.readLine())!=null&&!headerLine.isEmpty()){}\n        String path=first.split(" ")[1];
+        String headerLine;while((headerLine=reader.readLine())!=null&&!headerLine.isEmpty()){}
+        String path=first.split(" ")[1];
         Uri query=Uri.parse("http://127.0.0.1"+path);
         String returned=query.getQueryParameter("state");
         if(!state.equals(returned))throw new Exception("OAuth state mismatch");
