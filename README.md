@@ -15,3 +15,15 @@ The GitHub Actions workflow builds a debug APK and publishes it as an experiment
 
 ## Build
 Android SDK 35, Java 17, Gradle 8.10.2. Run `gradle :app:assembleDebug`.
+
+## Automatic IMS token for a personal build
+
+Never commit the IMS API token to the public repository. To provision a personal APK without typing it into the Android app:
+1. In GitHub, go to **Settings → Secrets and variables → Actions → New repository secret**.
+2. Set **Name** to `IMS_API_TOKEN` and paste your IMS token as **Secret**.
+3. Go to **Actions → Build Android APK → Run workflow** (or push a commit).
+4. In the successful run, download the **Atmos-Android-APK** artifact; install `app-debug.apk`.
+
+The workflow creates `assets/ims-bootstrap.txt` in the GitHub Actions runner **only**, and the app imports that token into its Android Keystore on first startup. This build contains the token and **anyone who obtains this APK can extract the token**. For that reason, the workflow does **not publish a public GitHub Release** when the secret is configured. The regular no-secret APK is still built and released publicly for developers.
+
+This is suitable only for a personal experimental build. For a shareable production app, keep the token on an authenticated backend proxy and provide the app with a tokenless API.
