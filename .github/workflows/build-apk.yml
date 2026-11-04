@@ -17,6 +17,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Validate JavaScript
+        run: |
+          node --check app/src/main/assets/chat-engine.js
+          python3 - <<'PY'
+          import pathlib, re, subprocess, tempfile
+          src = pathlib.Path('app/src/main/assets/index.html').read_text()
+          scripts = re.findall(r'<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>', src)
+          assert scripts, 'No inline scripts found'
+          for script in scripts:
+              with tempfile.NamedTemporaryFile(suffix='.js', mode='w', encoding='utf-8') as f:
+                  f.write(script)
+                  f.flush()
+                  subprocess.run(['node','--check',f.name], check=True)
+          PY
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
