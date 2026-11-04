@@ -351,9 +351,9 @@ public final class ChatGPTNative {
                 req.put("input",new JSONArray().put(
                     new JSONObject().put("role","user").put("content",content)));
                 String result=streamResponse(req,accessToken());
-                call("atmosAIResult",id,result,"");
+                call("atmosMapAIResult",id,result,"");
             }catch(Exception error){
-                call("atmosAIResult",id,"",error.getMessage());
+                call("atmosMapAIResult",id,"",error.getMessage());
             }
         });
     }
