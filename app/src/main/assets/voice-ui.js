@@ -53,7 +53,9 @@ window.atmosVoiceReady=availability=>{
 };
 function onAnswer(answer,spoken){
  if(!spoken)return;
+ const shouldSpeak=voiceTurn;
  waiting=false;listening=false;voiceTurn=false;
+ if(!shouldSpeak){setStatus('התשובה מוכנה בצ׳אט. ההקראה כבויה.');sync();return;}
  lastAnswer=String(answer||'').trim();
  if(lastAnswer){
    setStatus('אטמוס עונה בקול 🔊');
