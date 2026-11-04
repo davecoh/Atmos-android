@@ -1,16 +1,147 @@
 <!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#102035"><title>אטמוס</title><style>
 :root{color-scheme:dark;font-family:system-ui,"Arial",sans-serif;--bottom-bar-h:64px}*{box-sizing:border-box}body{margin:0;background:#0b1727;color:#ecf5ff;padding-bottom:env(safe-area-inset-bottom)}main{max-width:850px;margin:auto;padding:22px 16px calc(var(--bottom-bar-h) + 14px + env(safe-area-inset-bottom))}header{display:flex;align-items:center;justify-content:space-between;padding:12px 0 20px}h1{font-size:30px;margin:0}small,p{color:#a4b9cb}button,select,input{font:inherit}button{cursor:pointer}select,input{background:#172c43;color:#fff;border:1px solid #344e65;padding:13px;border-radius:12px;max-width:100%}.controls{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}button{background:#1b3652;border:1px solid #42617b;color:white;border-radius:12px;padding:12px}button.active,.primary{background:#20b8a5;color:#06202b;border:0;font-weight:700}.hero{background:linear-gradient(135deg,#163b61,#14545a);border:1px solid #3a7487;border-radius:24px;padding:24px;margin:14px 0}#todayTemp{font-size:64px;font-weight:800;margin:14px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.tile,.panel{background:#13273d;border:1px solid #29435c;border-radius:15px;padding:15px;margin:8px 0}.tile span{display:block;color:#9fbacf;font-size:12px}.tile strong{font-size:23px}h2{font-size:20px;margin:23px 0 10px}.days{display:grid;grid-template-columns:repeat(5,minmax(125px,1fr));gap:10px;overflow-x:auto;padding-bottom:8px}.day{background:#162c43;border:1px solid #36536e;border-radius:15px;text-align:center;padding:14px 8px}.day strong{font-size:23px;display:block;padding:12px 0}.day small{font-size:12px}.row{display:grid;grid-template-columns:1fr repeat(3,72px);gap:5px;align-items:center;padding:13px 4px;border-bottom:1px solid #2f475d;font-size:13px}.legend{font-size:12px;color:#abc2d4}.hide{display:none}.error{color:#ffc3b5;background:#4a2830;border-radius:12px;padding:15px;margin:12px 0}label{display:block;margin:14px 0 5px}input{width:100%}.bottom{position:fixed;bottom:0;left:0;right:0;display:flex;background:#10263a;border-top:1px solid #31516b;padding:6px max(10px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));gap:6px;min-height:var(--bottom-bar-h)}.bottom button{flex:1;padding:10px 8px;font-size:14px;line-height:1.15}a{color:#62d8cc}#status{font-size:12px;color:#bdd2df}
-.chat-shell{display:flex;flex-direction:column;gap:12px}.chat-log{min-height:270px;max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px}.chat-bubble{white-space:pre-wrap;border-radius:17px;padding:14px 16px;line-height:1.6;max-width:94%;font-size:14px}.chat-bubble.user{align-self:flex-start;background:#1c6370;color:#f3ffff}.chat-bubble.assistant{align-self:flex-end;background:#1b344e;border:1px solid #34556a}.chat-compose{display:flex;gap:8px;align-items:stretch}.chat-compose textarea{flex:1;min-width:0;min-height:52px;max-height:130px;background:#142b42;border:1px solid #3b5871;border-radius:12px;padding:12px;color:white;resize:vertical;font:inherit}.chat-compose button{align-self:stretch;min-width:70px}.chat-examples{display:flex;gap:7px;flex-wrap:wrap}.chat-examples button{font-size:12px;padding:8px 10px;background:#1b3449}@keyframes atmosBreathe{0%,100%{opacity:.63}50%{opacity:1}}.chat-bubble.assistant.loading{animation:atmosBreathe 1.4s ease-in-out infinite}</style></head><body><main>
+.chat-shell{display:flex;flex-direction:column;gap:12px}.chat-log{min-height:270px;max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px}.chat-bubble{white-space:pre-wrap;border-radius:17px;padding:14px 16px;line-height:1.6;max-width:94%;font-size:14px}.chat-bubble.user{align-self:flex-start;background:#1c6370;color:#f3ffff}.chat-bubble.assistant{align-self:flex-end;background:#1b344e;border:1px solid #34556a}.chat-compose{display:flex;gap:8px;align-items:stretch}.chat-compose textarea{flex:1;min-width:0;min-height:52px;max-height:130px;background:#142b42;border:1px solid #3b5871;border-radius:12px;padding:12px;color:white;resize:vertical;font:inherit}.chat-compose button{align-self:stretch;min-width:70px}.chat-examples{display:flex;gap:7px;flex-wrap:wrap}.chat-examples button{font-size:12px;padding:8px 10px;background:#1b3449}@keyframes atmosBreathe{0%,100%{opacity:.63}50%{opacity:1}}.chat-bubble.assistant.loading{animation:atmosBreathe 1.4s ease-in-out infinite}.forecast-chart{width:100%;height:auto;display:block;background:#10283e;border-radius:14px;padding:7px}.source-post{padding:12px 0;border-bottom:1px solid #33516c}.source-post:last-child{border-bottom:0}.source-post small{display:block;margin-top:3px}.day .spread{color:#67d5cc;font-size:11px;display:block}.source-links{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;margin:12px 0}.weather-note{font-size:12px;color:#9cbad2}</style></head><body><main>
 <header><div><h1>☁ אטמוס</h1><small>תחזית חכמה · ישראל</small></div><span id="status">מתחבר למודלים…</span></header>
 <section id="forecast"><div class="controls"><select id="place"><option value="32.763,35.663">כפר חרוב · דרום הגולן</option><option value="32.996,35.689">קצרין</option><option value="32.821,35.762">אבני איתן</option><option value="32.795,35.53">טבריה</option><option value="32.814,34.99">חיפה</option><option value="32.085,34.782">תל אביב</option><option value="31.769,35.216">ירושלים</option></select><button id="refresh">↻ רענון</button></div>
-<div id="error" class="error hide"></div><div class="hero"><small id="heroPlace">כפר חרוב</small><div id="todayTemp">—°</div><div id="summary">טוען את ECMWF, ICON ו-GFS…</div><div class="grid"><div class="tile"><span>גשם · 5 ימים</span><strong id="rainTotal">—</strong></div><div class="tile"><span>רוח מרבית</span><strong id="windMax">—</strong></div></div></div>
-<h2>חמשת הימים הקרובים</h2><div id="days" class="days"></div><h2>השוואת המודלים</h2><div class="panel"><div class="controls"><button data-metric="rain" class="metric active">גשם</button><button data-metric="max" class="metric">טמפרטורה</button><button data-metric="wind" class="metric">רוח</button></div><div class="legend">ECMWF (אירופי) | ICON (גרמני) | GFS (אמריקאי)</div><div id="comparison"></div></div><p>מקור: Open-Meteo. המודלים הם תחזיות מספריות, לא ניתוח מפות סינופטיות. הממוצע אינו הסתברות סטטיסטית לגשם.</p></section>
+<div id="error" class="error hide"></div><div class="hero"><small id="heroPlace">כפר חרוב</small><div id="todayTemp">—°</div><small id="currentTempLabel">טמפרטורה נוכחית — הערכת מודל</small><div id="summary">טוען את ECMWF, ICON ו-GFS…</div><p id="todayRange" style="margin:5px 0 14px">מינימום —° · מקסימום —°</p><div class="grid"><div class="tile"><span>גשם · 5 ימים</span><strong id="rainTotal">—</strong></div><div class="tile"><span>רוח מרבית</span><strong id="windMax">—</strong></div></div></div>
+<h2>טמפרטורות לאורך היום</h2><div class="panel"><div id="tempChart">מכין גרף…</div><p class="weather-note">הקו: תחזית שעתית · האזור המוצלל: טווח בין מודלים (אינו טווח שגיאה סטטיסטי).</p></div><h2>חמשת הימים הקרובים</h2><div id="days" class="days"></div><h2>מגמות ועדכונים אחרונים 🌦️</h2><div class="panel"><div id="newsStatus" class="legend">מחפש עדכונים מהימים האחרונים…</div><div id="weatherNews"></div><div class="source-links"><a href="https://www.weather2day.co.il/models" target="_blank" rel="noopener">מפות Weather2day</a><a href="https://www.weather2day.co.il/models/cosmo/temperature" target="_blank" rel="noopener">מפת COSMO טמפרטורה</a><a href="https://www.weather2day.co.il/models/cosmo/precipitation" target="_blank" rel="noopener">מפת COSMO גשם</a><a href="https://t.me/s/MezgAvirIL" target="_blank" rel="noopener">שלמה בטלגרם</a></div><p class="weather-note">עדכוני הקהילה הם פרשנות ומגמות בלבד, לא מדידות למיקום. המפות נפתחות במקור ולא מפוענחות אוטומטית.</p></div><h2>השוואת המודלים</h2><div class="panel"><div class="controls"><button data-metric="rain" class="metric active">גשם</button><button data-metric="max" class="metric">טמפרטורה</button><button data-metric="wind" class="metric">רוח</button></div><div class="legend">ECMWF (אירופי) | ICON (גרמני) | GFS (אמריקאי)</div><div id="comparison"></div></div><p>מקור: Open-Meteo. המודלים הם תחזיות מספריות, לא ניתוח מפות סינופטיות. הממוצע אינו הסתברות סטטיסטית לגשם.</p></section>
 <section id="history" class="hide"><h2>ארכיון השמ״ט</h2><p>נתונים היסטוריים ישירות מהשירות המטאורולוגי הישראלי. אין צורך בשרת נוסף.</p><div class="panel"><div id="imsTokenStatus" class="legend">בדיקת חיבור…</div><button id="configureIMS">הזנת / החלפת טוקן חד־פעמית</button><button id="stationsBtn" class="primary">טעינת תחנות</button><label>תחנת מדידה</label><select id="station"><option value="">טען תחנות תחילה</option></select><label>מתאריך</label><input id="from" type="date"><label>עד תאריך</label><input id="to" type="date"><button id="runHistory" class="primary">חשב סטטיסטיקה</button></div><div id="historyResult" class="panel">בחר תחנה וטווח תאריכים של עד 32 ימים.</div><p>מדידות תחנה אוטומטיות אינן בהכרח נתונים אקלימיים מבוקרים. נתונים חסרים עשויים להשפיע על הממוצעים.</p></section><section id="chat" class="hide"><h2>✦ אטמוס AI</h2><p>יש שאלה על גשם, שמש או קור? אני כאן ☁️</p><div class="panel"><strong>התחברות למנוי ChatGPT</strong><p id="gptStatus">רק רגע ☁️</p><div class="controls"><button id="gptLogin" class="primary">התחבר עם ChatGPT</button><button id="gptLogout">התנתק</button></div><label for="gptModel">מודל לשיחה</label><select id="gptModel" aria-label="בחירת מודל"><option value="">התחבר תחילה</option></select><p class="legend">השיחה משתמשת במכסת ChatGPT שאישרת.</p></div><div class="panel chat-shell"><div id="chatMessages" class="chat-log" role="log" aria-live="polite"></div><div class="chat-examples"><button data-chat-example="כמה גשם ירד באבני איתן באוקטובר 2025?">גשם באוקטובר</button><button data-chat-example="מה הטמפרטורה הממוצעת במרום גולן בחודש שעבר?">טמפרטורה חודשית</button><button data-chat-example="השווה גשם בגמלא באוקטובר 2025 לעומת שנה קודמת">השוואת שנים</button></div><div class="chat-compose"><textarea id="chatInput" aria-label="שאל שאלה על מזג האוויר" placeholder="לדוגמה: כמה גשם ירד באבני איתן באוקטובר 2025?"></textarea><button class="primary" id="chatSend">שלח</button></div></div><p>הערה קטנה: תחזיות הן תחזיות, ונתונים חסרים הם לא אפס גשם. 🌦️</p></section></main><nav class="bottom"><button id="forecastTab" class="active">☀ תחזית</button><button id="historyTab">▤ היסטוריה</button><button id="chatTab">✦ אטמוס AI</button></nav>
 <script>
 const $=id=>document.getElementById(id), models=[{id:'ECMWF',code:'ecmwf_ifs025'},{id:'ICON',code:'icon_global'},{id:'GFS',code:'gfs_global'}];let current=[],metric='rain';
 const fmt=(v,n=1)=>Number.isFinite(v)?v.toFixed(n):'—',val=(a,i)=>typeof a?.[i]==='number'?a[i]:null;
-function summarize(j){const h=j.hourly||{},map=new Map();(h.time||[]).forEach((t,i)=>{let day=t.slice(0,10);if(!map.has(day))map.set(day,{date:day,temp:[],rain:[],wind:[]});let d=map.get(day);for(let [k,src] of [['temp','temperature_2m'],['rain','precipitation'],['wind','wind_speed_10m']]){let v=val(h[src],i);if(v!==null)d[k].push(v)}});return [...map.values()].slice(0,5).map(d=>({date:d.date,min:d.temp.length?Math.min(...d.temp):null,max:d.temp.length?Math.max(...d.temp):null,rain:d.rain.reduce((a,b)=>a+b,0),wind:d.wind.length?Math.max(...d.wind):null}))}
-async function load(){ $('error').classList.add('hide');$('status').textContent='טוען…';const [latitude,longitude]=$('place').value.split(',');$('heroPlace').textContent=$('place').selectedOptions[0].textContent;try{let responses=await Promise.allSettled(models.map(async m=>{let p=new URLSearchParams({latitude,longitude,models:m.code,hourly:'temperature_2m,precipitation,wind_speed_10m',timezone:'Asia/Jerusalem',forecast_days:'5',wind_speed_unit:'kmh'});let r=await fetch('https://api.open-meteo.com/v1/forecast?'+p,{cache:'no-store'});if(!r.ok)throw Error(m.id+': HTTP '+r.status);return {id:m.id,days:summarize(await r.json())}}));current=responses.flatMap(x=>x.status==='fulfilled'?[x.value]:[]);if(!current.length)throw Error('לא התקבלה תחזית מאף מודל');let dates=current[0].days.map(d=>d.date),averages=dates.map((date,i)=>{let ds=current.map(m=>m.days.find(x=>x.date===date)).filter(Boolean),avg=k=>{let xs=ds.map(d=>d[k]).filter(Number.isFinite);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null};return {date,max:avg('max'),min:avg('min'),rain:avg('rain'),wind:avg('wind')}});$('todayTemp').textContent=fmt(averages[0].max,0)+'°';$('summary').textContent='ממוצע '+current.length+' מודלים זמינים';$('rainTotal').textContent=fmt(averages.reduce((s,d)=>s+(d.rain||0),0))+' מ״מ';$('windMax').textContent=fmt(Math.max(...averages.map(d=>d.wind||0)),0)+' קמ״ש';$('days').innerHTML=averages.map(d=>'<div class="day"><small>'+new Date(d.date+'T12:00').toLocaleDateString('he-IL',{weekday:'short',day:'numeric',month:'numeric'})+'</small><strong>'+fmt(d.max,0)+'°</strong><small>'+fmt(d.min,0)+'° · ☂ '+fmt(d.rain)+' מ״מ</small></div>').join('');$('status').textContent='עודכן '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});renderComparison();}catch(e){$('error').textContent=e.message;$('error').classList.remove('hide');$('status').textContent='שגיאה'} }
+function summarize(j){
+ const h=j.hourly||{},map=new Map();
+ (h.time||[]).forEach((t,i)=>{
+  const date=t.slice(0,10);
+  if(!map.has(date))map.set(date,{date,temp:[],rain:[],wind:[]});
+  const day=map.get(date);
+  for(const [key,field] of [['temp','temperature_2m'],['rain','precipitation'],['wind','wind_speed_10m']]){
+   const v=val(h[field],i);if(v!==null)day[key].push(v);
+  }
+ });
+ return [...map.values()].slice(0,5).map(d=>({
+  date:d.date,min:d.temp.length?Math.min(...d.temp):null,
+  max:d.temp.length?Math.max(...d.temp):null,
+  rain:d.rain.reduce((a,b)=>a+b,0),
+  wind:d.wind.length?Math.max(...d.wind):null
+ }));
+}
+let forecastSeq=0;
+let latestNews={checked_at:null,posts:[],sources:[]};
+window.atmosNewsResult=(id,payload)=>{
+ if(id!=='forecast-news')return;
+ latestNews=payload||{posts:[],sources:[]};
+ const items=(latestNews.posts||[]).sort((a,b)=>b.time.localeCompare(a.time)).slice(0,6);
+ $('newsStatus').textContent=items.length?'עדכונים שפורסמו ב־72 השעות האחרונות':'אין כרגע פוסטים חדשים שניתן לאמת. אפשר לצפות ישירות במקורות.';
+ $('weatherNews').replaceChildren();
+ for(const item of items){
+   const div=document.createElement('div');div.className='source-post';
+   const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';
+   link.textContent=item.source+' · '+Math.max(0,Math.floor(item.age_hours))+' שעות';
+   const snippet=document.createElement('p');snippet.textContent=item.text;snippet.style.margin='6px 0';
+   div.append(link,snippet);$('weatherNews').append(div);
+ }
+};
+function refreshWeatherNews(){
+ if(window.AtmosNews){window.AtmosNews.refresh('forecast-news');}
+ else $('newsStatus').textContent='לעדכונים החדשים אפשר להיכנס ישירות לקישורים למטה.';
+}
+function renderHourlyTemperature(modelsData){
+ const chart=$('tempChart'),valid=modelsData.filter(m=>m.hourly?.time?.length);
+ if(!valid.length){chart.textContent='אין נתונים שעתיים לגרף';return;}
+ const date=valid[0].hourly.time[0].slice(0,10);
+ const hours=valid[0].hourly.time.map((t,i)=>({time:t,i})).filter(x=>x.time.startsWith(date));
+ const samples=hours.map(x=>{
+  const values=valid.map(m=>{
+   const idx=m.hourly.time.indexOf(x.time);
+   return idx<0?null:val(m.hourly.temperature_2m,idx);
+  }).filter(Number.isFinite);
+  if(!values.length)return null;
+  return {hour:Number(x.time.slice(11,13)),low:Math.min(...values),high:Math.max(...values),
+   mean:values.reduce((a,b)=>a+b,0)/values.length};
+ }).filter(Boolean);
+ if(samples.length<2){chart.textContent='אין מספיק נתונים שעתיים לגרף';return;}
+ const low=Math.floor(Math.min(...samples.map(x=>x.low))-1), high=Math.ceil(Math.max(...samples.map(x=>x.high))+1);
+ const w=360,h=185,pl=27,pr=12,pt=19,pb=30;
+ const x=i=>pl+(w-pl-pr)*i/(samples.length-1);
+ const y=v=>pt+(h-pt-pb)*(high-v)/(high-low||1);
+ const poly=samples.map((v,i)=>x(i).toFixed(1)+','+y(v.high).toFixed(1)).concat(
+  samples.map((v,i)=>x(i).toFixed(1)+','+y(v.low).toFixed(1)).reverse()).join(' ');
+ const line=samples.map((v,i)=>x(i).toFixed(1)+','+y(v.mean).toFixed(1)).join(' ');
+ const ticks=[0,6,12,18].map(hr=>{
+  const idx=samples.findIndex(v=>v.hour===hr);
+  return idx<0?'':'<text x="'+x(idx)+'" y="'+(h-8)+'" fill="#b0c4d6" font-size="11" text-anchor="middle">'+String(hr).padStart(2,'0')+':00</text>';
+ }).join('');
+ chart.innerHTML='<svg class="forecast-chart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="גרף טמפרטורה שעתי: קו ממוצע ומעטפת טווח בין מודלים">'+
+  [low,(low+high)/2,high].map(v=>'<line x1="'+pl+'" x2="'+(w-pr)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#31516b" stroke-dasharray="3 5"/>'+
+  '<text x="3" y="'+(y(v)+4)+'" font-size="10" fill="#b7cbd9">'+Math.round(v)+'°</text>').join('')+
+  '<polygon points="'+poly+'" fill="#2ab3b1" fill-opacity=".24"/><polyline points="'+line+'" fill="none" stroke="#69e2d2" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+ticks+'</svg>';
+}
+async function load(){
+ const seq=++forecastSeq;
+ $('error').classList.add('hide');$('status').textContent='מעדכן…';
+ const [latitude,longitude]=$('place').value.split(',');
+ $('heroPlace').textContent=$('place').selectedOptions[0].textContent;
+ refreshWeatherNews();
+ try{
+  const p=new URLSearchParams({latitude,longitude,
+   current:'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m',
+   hourly:'temperature_2m,precipitation,wind_speed_10m',
+   daily:'temperature_2m_min,temperature_2m_max,precipitation_sum',
+   timezone:'Asia/Jerusalem',forecast_days:'5'});
+  const primaryRequest=fetch('https://api.open-meteo.com/v1/forecast?'+p,{cache:'no-store'})
+   .then(r=>{if(!r.ok)throw Error('תחזית משולבת אינה זמינה');return r.json();});
+  const secondary=models.map(async model=>{
+    const opts=new URLSearchParams({latitude,longitude,models:model.code,
+     hourly:'temperature_2m,precipitation,wind_speed_10m',timezone:'Asia/Jerusalem',
+     forecast_days:'5',wind_speed_unit:'kmh'});
+    const resp=await fetch('https://api.open-meteo.com/v1/forecast?'+opts,{cache:'no-store'});
+    if(!resp.ok)throw Error(model.id+' unavailable');
+    const json=await resp.json();return {id:model.id,days:summarize(json),hourly:json.hourly};
+  });
+  const [primaryResult,secondaryResults]=await Promise.all([
+   primaryRequest.then(data=>({ok:true,data})).catch(error=>({ok:false,error})),
+   Promise.allSettled(secondary)
+  ]);
+  if(seq!==forecastSeq)return;
+  current=secondaryResults.filter(x=>x.status==='fulfilled').map(x=>x.value);
+  if(!current.length&&!primaryResult.ok)throw Error('כרגע אין תחזית זמינה למיקום הזה');
+  const primary=primaryResult.ok?primaryResult.data:null;
+  const dates=(primary?.daily?.time||current[0]?.days.map(x=>x.date)||[]).slice(0,5);
+  const averaged=dates.map((date,i)=>{
+   const ds=current.map(m=>m.days.find(d=>d.date===date)).filter(Boolean);
+   const avg=key=>{const values=ds.map(d=>d[key]).filter(Number.isFinite);return values.length?values.reduce((a,b)=>a+b,0)/values.length:null};
+   const dn=primary?.daily||{};
+   return {date,min:val(dn.temperature_2m_min,i)??avg('min'),
+    max:val(dn.temperature_2m_max,i)??avg('max'),
+    rain:val(dn.precipitation_sum,i)??avg('rain'),wind:avg('wind'),
+    spreadMin:ds.length?Math.min(...ds.map(d=>d.min).filter(Number.isFinite)):null,
+    spreadMax:ds.length?Math.max(...ds.map(d=>d.max).filter(Number.isFinite)):null};
+  });
+  const nowTemp=primary?.current?.temperature_2m;
+  $('todayTemp').textContent=Number.isFinite(nowTemp)?fmt(nowTemp,0)+'°':'—°';
+  $('currentTempLabel').textContent=Number.isFinite(nowTemp)?
+   'הערכה נוכחית לפי מודל · '+(primary.current.time?.slice(11,16)||'')+
+   ' · מרגיש כמו '+fmt(primary.current.apparent_temperature,0)+'°':
+   'טמפרטורה נוכחית אינה זמינה';
+  $('todayRange').textContent='מינימום היום '+fmt(averaged[0]?.min,0)+'°  ·  מקסימום '+fmt(averaged[0]?.max,0)+'°';
+  $('summary').textContent='תחזית מקומית · '+current.length+' מודלים להשוואה';
+  $('rainTotal').textContent=fmt(averaged.reduce((sum,d)=>sum+(d.rain||0),0))+' מ״מ';
+  $('windMax').textContent=fmt(Math.max(0,...averaged.map(d=>d.wind||0)),0)+' קמ״ש';
+  $('days').innerHTML=averaged.map(d=>'<div class="day"><small>'+
+   new Date(d.date+'T12:00').toLocaleDateString('he-IL',{weekday:'short',day:'numeric',month:'numeric'})+
+   '</small><strong>'+fmt(d.max,0)+'° / '+fmt(d.min,0)+'°</strong><small>☂ '+fmt(d.rain)+' מ״מ</small>'+
+   (Number.isFinite(d.spreadMin)&&Number.isFinite(d.spreadMax)?'<span class="spread">טווח מודלים '+fmt(d.spreadMin,0)+'°–'+fmt(d.spreadMax,0)+'°</span>':'')+
+   '</div>').join('');
+  renderHourlyTemperature(current.length?current:(primary?[{hourly:primary.hourly}]:[]));
+  $('status').textContent='עודכן '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  renderComparison();
+ }catch(e){
+  if(seq!==forecastSeq)return;
+  $('error').textContent='לא הצלחתי לעדכן כרגע. אפשר לנסות לרענן.';
+  $('error').classList.remove('hide');$('status').textContent='אין עדכון';
+ }
+}
 function renderComparison(){$('comparison').innerHTML=current.length?current[0].days.map((d,i)=>'<div class="row"><strong>'+new Date(d.date+'T12:00').toLocaleDateString('he-IL',{weekday:'short',day:'numeric'})+'</strong>'+current.map(m=>'<span>'+fmt(m.days[i]?.[metric])+'</span>').join('')+'</div>').join(''):'אין נתונים';}
 $('place').onchange=load;$('refresh').onclick=load;document.querySelectorAll('.metric').forEach(b=>b.onclick=()=>{metric=b.dataset.metric;document.querySelectorAll('.metric').forEach(x=>x.classList.toggle('active',x===b));renderComparison()});
 $('forecastTab').onclick=()=>switchTab('forecast');$('historyTab').onclick=()=>switchTab('history');$('chatTab').onclick=()=>switchTab('chat');function switchTab(tab){for(const id of ['forecast','history','chat']){$(id).classList.toggle('hide',id!==tab);$(id+'Tab').classList.toggle('active',id===tab)}if(tab==='history'){updateIMSStatus();if(!loadedStations&&window.AtmosIMS&&window.AtmosIMS.isConfigured())getIMSStations();}}
