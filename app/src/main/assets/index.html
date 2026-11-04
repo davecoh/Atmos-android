@@ -19,7 +19,7 @@ const pendingIMS=new Map();let imsCounter=0;let loadedStations=false;
 function imsRequest(path){return new Promise((resolve,reject)=>{if(!window.AtmosIMS){reject(Error('נדרש APK מעודכן עם חיבור שמ״ט'));return;}let id='q'+(++imsCounter);pendingIMS.set(id,{resolve,reject});window.AtmosIMS.request(path,id);});}
 window.imsResponse=(id,raw,err)=>{const task=pendingIMS.get(id);if(!task)return;pendingIMS.delete(id);if(err){task.reject(Error(err));return;}try{task.resolve(JSON.parse(raw));}catch(e){task.reject(Error('תגובת השמ״ט אינה JSON תקין'));}};
 window.imsConfigured=ok=>{updateIMSStatus();if(ok){loadedStations=false;getIMSStations();}else $('historyResult').textContent='לא ניתן לשמור את הטוקן';};
-function updateIMSStatus(){let ok=!!window.AtmosIMS&&window.AtmosIMS.isConfigured();$('imsTokenStatus').textContent=ok?'✓ הטוקן שמור מוצפן בטלפון':'נדרש טוקן שמ״ט פעם אחת (יישמר במכשיר בלבד)';}
+function updateIMSStatus(){let ok=!!window.AtmosIMS&&window.AtmosIMS.isConfigured();$('imsTokenStatus').textContent=ok?'✓ החיבור לשמ״ט מוכן':'החיבור לשמ״ט עדיין לא הופעל. נדרש להגדיר GitHub Actions Secret ולבנות APK חדש.';$('configureIMS').classList.toggle('hide',ok);}
 $('configureIMS').onclick=()=>{if(window.AtmosIMS)window.AtmosIMS.configure();else $('historyResult').textContent='נדרשת גרסת אנדרואיד מעודכנת';};
 function imsList(raw){if(Array.isArray(raw))return raw;if(Array.isArray(raw?.data))return raw.data;if(Array.isArray(raw?.stations))return raw.stations;return [];}
 function safeText(v){return String(v??'').replace(/[<>&"'\x60]/g,'');}
