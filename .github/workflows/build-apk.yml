@@ -35,7 +35,7 @@ jobs:
       - name: Provision IMS credential from GitHub Actions secret
         id: ims
         env:
-          IMS_API_TOKEN: ${{ secrets.IMS_API_TOKEN }}
+          IMS_API_TOKEN: ${{ secrets.IMS_TOKEN }}
         shell: bash
         run: |
           if [ -n "$IMS_API_TOKEN" ]; then
