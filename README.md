@@ -20,7 +20,7 @@ Android SDK 35, Java 17, Gradle 8.10.2. Run `gradle :app:assembleDebug`.
 
 Never commit the IMS API token to the public repository. To provision a personal APK without typing it into the Android app:
 1. In GitHub, go to **Settings → Secrets and variables → Actions → New repository secret**.
-2. Set **Name** to `IMS_API_TOKEN` and paste your IMS token as **Secret**.
+2. Set **Name** to `IMS_TOKEN` and paste your IMS token as **Secret**.
 3. Go to **Actions → Build Android APK → Run workflow** (or push a commit).
 4. In the successful run, download the **Atmos-Android-APK** artifact; install `app-debug.apk`.
 
