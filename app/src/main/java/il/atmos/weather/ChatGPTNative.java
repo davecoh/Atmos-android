@@ -224,43 +224,69 @@ public final class ChatGPTNative {
      */
     private static final class OpenAIDns implements Dns {
         private final Dns system=Dns.SYSTEM;
-        @Override public List<InetAddress> lookup(String host) throws UnknownHostException {
-            try { return system.lookup(host); }
-            catch (UnknownHostException initial) {
-                if(!"auth.openai.com".equals(host) && !"api.openai.com".equals(host))throw initial;
-                Exception reason=initial;
-                for(String provider:new String[]{"https://dns.google/resolve?name=","https://cloudflare-dns.com/dns-query?name="}) {
-                    HttpURLConnection connection=null;
-                    try {
-                        URL u=new URL(provider+host+"&type=A");
-                        connection=(HttpURLConnection)u.openConnection();
-                        connection.setConnectTimeout(7000);
-                        connection.setReadTimeout(7000);
-                        connection.setRequestProperty("Accept","application/dns-json");
-                        if(connection.getResponseCode()!=200)continue;
-                        byte[] raw=new byte[32768];
-                        int n=connection.getInputStream().read(raw);
-                        if(n<=0)continue;
-                        JSONObject info=new JSONObject(new String(raw,0,n,StandardCharsets.UTF_8));
-                        if(info.optInt("Status",-1)!=0)continue;
-                        JSONArray answers=info.optJSONArray("Answer");
-                        if(answers==null)continue;
-                        List<InetAddress> addresses=new ArrayList<>();
-                        for(int i=0;i<answers.length();i++){
-                            JSONObject a=answers.optJSONObject(i);
-                            if(a==null || a.optInt("type")!=1)continue;
-                            String ip=a.optString("data");
-                            if(!ip.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"))continue;
-                            String[] octets=ip.split("\\.");
-                            byte[] bytes=new byte[4];boolean good=true;
-                            for(int j=0;j<4;j++){int v=Integer.parseInt(octets[j]);if(v>255){good=false;break;}bytes[j]=(byte)v;}
-                            if(good)addresses.add(InetAddress.getByAddress(host,bytes));
-                        }
-                        if(!addresses.isEmpty())return addresses;
-                    }catch(Exception e){reason=e;}
-                    finally{if(connection!=null)connection.disconnect();}
+        private static InetAddress addr(String hostname,int a,int b,int c,int d) throws UnknownHostException {
+            return InetAddress.getByAddress(hostname,new byte[]{(byte)a,(byte)b,(byte)c,(byte)d});
+        }
+        private static List<InetAddress> parseAnswers(String hostname,JSONObject json) throws Exception {
+            if(json.optInt("Status",-1)!=0)throw new Exception("DoH returned non-success status");
+            JSONArray answers=json.optJSONArray("Answer");
+            List<InetAddress> result=new ArrayList<>();
+            if(answers!=null)for(int i=0;i<answers.length();i++){
+                JSONObject item=answers.optJSONObject(i);
+                if(item==null||item.optInt("type")!=1)continue;
+                String value=item.optString("data");
+                if(!value.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"))continue;
+                String[] parts=value.split("\\.");
+                byte[] bytes=new byte[4];boolean valid=true;
+                for(int j=0;j<4;j++){
+                    int n=Integer.parseInt(parts[j]);
+                    if(n>255){valid=false;break;}
+                    bytes[j]=(byte)n;
                 }
-                throw new UnknownHostException("DNS resolution failed for "+host+" (Android DNS and HTTPS DNS fallback). "+reason.getClass().getSimpleName());
+                if(valid)result.add(InetAddress.getByAddress(hostname,bytes));
+            }
+            return result;
+        }
+        private List<InetAddress> resolveHttps(String hostname,String provider) throws Exception {
+            String serviceHost="google".equals(provider)?"dns.google":"cloudflare-dns.com";
+            String url="google".equals(provider)
+                ?"https://dns.google/resolve?name="+hostname+"&type=A"
+                :"https://cloudflare-dns.com/dns-query?name="+hostname+"&type=A";
+            // Bootstrap the encrypted resolver with known public IPs, bypassing Android
+            // DNS only for the resolver itself. TLS retains the hostname and is verified.
+            Dns bootstrap=h->{
+                if("dns.google".equals(h))return Arrays.asList(
+                    addr(h,8,8,8,8),addr(h,8,8,4,4));
+                if("cloudflare-dns.com".equals(h))return Arrays.asList(
+                    addr(h,1,1,1,1),addr(h,1,0,0,1));
+                return Dns.SYSTEM.lookup(h);
+            };
+            OkHttpClient doh=new OkHttpClient.Builder().dns(bootstrap)
+                .connectTimeout(7,TimeUnit.SECONDS)
+                .readTimeout(7,TimeUnit.SECONDS)
+                .build();
+            Request request=new Request.Builder().url(url)
+                .header("Accept","application/dns-json")
+                .get().build();
+            try(Response response=doh.newCall(request).execute()){
+                if(!response.isSuccessful()||response.body()==null)throw new Exception("DoH HTTP "+response.code());
+                JSONObject json=new JSONObject(response.body().string());
+                List<InetAddress> addresses=parseAnswers(hostname,json);
+                if(addresses.isEmpty())throw new Exception("No A records found");
+                return addresses;
+            }
+        }
+        @Override public List<InetAddress> lookup(String host) throws UnknownHostException {
+            try {return system.lookup(host);}
+            catch(UnknownHostException original){
+                if(!"auth.openai.com".equals(host)&&!"api.openai.com".equals(host))throw original;
+                List<String> failures=new ArrayList<>();
+                for(String provider:new String[]{"google","cloudflare"}){
+                    try{return resolveHttps(host,provider);}
+                    catch(Exception failure){failures.add(provider+":"+failure.getClass().getSimpleName());}
+                }
+                throw new UnknownHostException("DNS failed for "+host+
+                    "; encrypted resolver bootstrap also failed ("+String.join(", ",failures)+")");
             }
         }
     }
