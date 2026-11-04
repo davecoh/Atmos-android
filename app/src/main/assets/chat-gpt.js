@@ -60,6 +60,21 @@ async function setup(){
  $('gptLogout').onclick=()=>{g.logout()};
 }
 function messages(role,text){let node=document.createElement('div');node.className='chat-bubble '+role;node.textContent=text;$('chatMessages').append(node);$('chatMessages').scrollTop=$('chatMessages').scrollHeight;return node}
+function isHistoricalQuestion(q){
+ const t=String(q||'');
+ return /גשם|משקע|ירד|טמפרטור|מעלות|רוח|לחות|מדידות|תחנות|תחנה|היסטורי|שנת|בשנת|מרץ|ינואר|פברואר|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|199[0-9]|20[0-2][0-9]/i.test(t)
+   && !/תחזית|מודל|מחר|בעוד|בשבת הבאה/.test(t);
+}
+function isStationDirectoryQuestion(q){return /רשימ[הת]|אילו תחנות|איזה תחנות|תן לי.*תחנות|הצג.*תחנות/.test(String(q||''));}
+async function requireIMSStations(){
+ if(!window.AtmosIMS)throw Error('רכיב השמ״ט אינו זמין בגרסה הזאת.');
+ if(!window.AtmosIMS.isConfigured())throw Error('חסר טוקן שמ״ט בגרסת אטמוס GPT. פתח את לשונית היסטוריה, לחץ על הזנת טוקן חד־פעמית, והזן את הטוקן פעם אחת.');
+ let raw;
+ try{raw=await window.imsRequest('');}catch(e){throw Error('קריאת רשימת התחנות מהשמ״ט נכשלה: '+e.message+'. בדוק את טעינת התחנות בלשונית היסטוריה.');}
+ let stations=stationList(raw);
+ if(!stations.length)throw Error('השמ״ט לא החזיר תחנות מזוהות. בדוק את הטוקן או נסה שוב.');
+ return stations;
+}
 function stationList(raw){
  let data=window.imsList(raw);
  return data.map(x=>({id:Number(x.stationId??x.id),name:window.hebrewStationName(x.name??x.stationName??''),original:String(x.name??x.stationName??'')}))
@@ -111,19 +126,46 @@ async function send(raw){
  busy=true;$('chatSend').disabled=true;
  const bubble=messages('assistant','GPT מנתח את השאלה…');
  try{
-  const now=isoLocal(new Date());let stations=[];
-  if(window.AtmosIMS?.isConfigured()){try{stations=stationList(await window.imsRequest(''))}catch(e){/* still supports forecasts and general questions */}}
+  const now=isoLocal(new Date());
+  const historical=isHistoricalQuestion(q);
+  let stations=[];
+  if(historical){
+    bubble.textContent='בודק חיבור לשמ״ט וטוען רשימת תחנות…';
+    stations=await requireIMSStations();
+  }else if(window.AtmosIMS?.isConfigured()){
+    try{stations=stationList(await window.imsRequest(''));}catch(e){stations=[];}
+  }
+  if(isStationDirectoryQuestion(q)){
+    const names=stations.slice(0,35).map(x=>x.name+' (מספר '+x.id+')');
+    const answer='תחנות שמ״ט זמינות ('+stations.length+' בסך הכול):\\n'+names.join('\\n')+
+      (stations.length>names.length?'\\n… ותחנות נוספות.':'');
+    bubble.textContent=answer;history.push({role:'user',text:q},{role:'assistant',text:answer});history=history.slice(-8);
+    return;
+  }
   const list=stations.slice(0,180).map(s=>s.id+':'+s.name).join('; ');
   const recent=history.slice(-4).map(x=>x.role+': '+x.text).join('\n');
-  const planning='You are a weather data query planner for Israel. Today is '+now+'. User question: '+q+
-   '\nContext:\n'+recent+'\nAvailable IMS station IDs and Hebrew names: '+list+
-   '\nReturn ONLY a JSON object with action historical, forecast, or general. For historical include metric (rain,temp,max,min,wind,gust,humid), stations (array of 1-2 numeric IDs from list), periods (1-2 objects with from/to ISO dates). For forecast do not invent external station IDs. For general include answer for general non-data weather concepts. Never invent station IDs, do not claim historical measurements without tool data. Maximum period 186 days each. If ambiguous, return action general and answer asking a precise question.';
+  const planning='You are an Atmos weather query planner for Israel. Today is '+now+'. Question: '+q+
+   '\\nPrior dialogue: '+recent+'\\nIMS station IDs and names: '+list+
+   '\\nHistorical observations required: '+historical+
+   '. Reply ONLY with a JSON object: action historical, forecast or general. For questions requesting historical measurements, select historical if the station is listed. Do not ask the user to provide stations or raw data; the application fetches them.'+
+   ' For historical provide metric rain,temp,max,min,wind,gust,humid, stations array of 1 or 2 numeric IDs FROM THE LIST, periods array of 1 or 2 objects {from,to} ISO dates (each at most 186 days). Preserve years including 1992.'+
+   ' For forecast use action forecast. For general explanation or ambiguous station use action general with answer. Do not invent weather measurements or station IDs.';
   let plan;
   try{plan=jsonText(await callGPT(planning));}catch(e){throw Error('לא ניתן לפענח תוכנית שאילתות מהמודל: '+e.message)}
   let result;
   if(plan.action==='historical'){bubble.textContent='GPT בחר תחנות ותאריכים. מוריד נתוני שמ״ט…';result=await historyTool(plan,stations);}
   else if(plan.action==='forecast'){bubble.textContent='GPT בחר ניתוח תחזית המודלים…';result=forecastTool();}
-  else if(plan.action==='general'){result={kind:'general',note:'No real-time data queried',answer:String(plan.answer||'לא נבחרה שאילתת נתונים')};}
+  else if(plan.action==='general'){
+    if(historical&&stations.length&&!isStationDirectoryQuestion(q)){
+      bubble.textContent='מנסה לזהות תחנה ותקופה לשאילתה…';
+      const retry='Return only JSON. Weather station data exists in the app, not your model memory. Question: '+q+
+      '. Station IDs and Hebrew names: '+list+
+      '. Choose action historical, metric and stations numeric IDs from list, periods ISO from/to. Never request the station list from user. If location cannot be matched, choose general with a short clarification.';
+      const next=jsonText(await callGPT(retry));
+      if(next.action==='historical')result=await historyTool(next,stations);
+      else throw Error('לא זוהתה תחנה מתאימה. בחר תחנה המופיעה בלשונית היסטוריה ונסה שוב.');
+    }else result={kind:'general',note:'No weather database queried',answer:String(plan.answer||'לא נבחרה שאילתה')};
+  }
   else throw Error('המודל החזיר פעולה לא מאושרת');
   bubble.textContent='GPT מנתח את התוצאות…';
   const responsePrompt='You are Atmos, a careful Hebrew weather assistant. Respond in Hebrew. User question: '+q+
