@@ -200,16 +200,16 @@ async function send(raw){
  const fullQuestion=contextualQuestion(q);
  if(q.length>35&&!/^(ו?ב|ומה|ולגבי)/.test(q))lastDetailedQuestion=q;
  history.push({role:'user',text:q});history=history.slice(-10);
- if(!getNative()?.connected()){messages('assistant','כדי לקבל תשובה ממודל GPT, לחץ על ״התחבר עם ChatGPT״ ואשר את הגישה למנוי.');return;}
- if(!model()){messages('assistant','לא נבחר מודל. התחבר מחדש או בדוק את הרשאות המנוי.');return;}
+ if(!getNative()?.connected()){messages('assistant','בוא נתחבר ל-ChatGPT, ואז נדבר על מזג האוויר ☀️');return;}
+ if(!model()){messages('assistant','חסר לי מודל לשיחה. בוא ננסה להתחבר שוב 🙂');return;}
  busy=true;$('chatSend').disabled=true;
- const bubble=messages('assistant','GPT מנתח את השאלה…');
+ const bubble=messages('assistant','רגע, מציץ בעננים ☁️');
  try{
   const now=isoLocal(new Date());
   const historical=isHistoricalQuestion(fullQuestion);
   let stations=[];
   if(historical){
-    bubble.textContent='בודק חיבור לשמ״ט וטוען רשימת תחנות…';
+    bubble.textContent='מוציא מטרייה לנתונים ☔';
     stations=await requireIMSStations();
   }else if(window.AtmosIMS?.isConfigured()){
     try{stations=stationList(await window.imsRequest(''));}catch(e){stations=[];}
@@ -240,11 +240,11 @@ async function send(raw){
     plan.stations=[]; // Never claim an unrelated station belongs to this town.
   }
   let result;
-  if(plan.action==='historical'){bubble.textContent='GPT בחר תחנות ותאריכים. מוריד נתוני שמ״ט…';result=await historyTool(plan,stations);}
-  else if(plan.action==='forecast'){bubble.textContent='GPT בחר ניתוח תחזית המודלים…';result=forecastTool();}
+  if(plan.action==='historical'){bubble.textContent='מחפש טיפות של מידע 💧';result=await historyTool(plan,stations);}
+  else if(plan.action==='forecast'){bubble.textContent='מציץ אל העתיד 🔮';result=forecastTool();}
   else if(plan.action==='general'){
     if(historical&&stations.length&&!isStationDirectoryQuestion(fullQuestion)){
-      bubble.textContent='מנסה לזהות תחנה ותקופה לשאילתה…';
+      bubble.textContent='עוד רגע, מסדר את העננים ☁️';
       const retry='Return only JSON. Weather station data exists in the app, not your model memory. Question: '+fullQuestion+
       '. Station IDs and Hebrew names: '+list+
       '. Choose action historical, metric and stations numeric IDs from list, periods ISO from/to. Never request the station list from user. If location cannot be matched, choose general with a short clarification.';
@@ -254,7 +254,7 @@ async function send(raw){
     }else result={kind:'general',note:'No weather database queried',answer:String(plan.answer||'לא נבחרה שאילתה')};
   }
   else throw Error('המודל החזיר פעולה לא מאושרת');
-  bubble.textContent='GPT מנתח את התוצאות…';
+  bubble.textContent='מחבר את הנקודות ✨';
   const responsePrompt='You are Atmos, a careful Hebrew weather assistant. Respond in Hebrew. User question: '+fullQuestion+
   '\nEarlier dialog:\n'+recent+'\nVERIFIED TOOL OUTPUT (source of numerical truth):\n'+JSON.stringify(result)+
   '\nNever invent values, station identifiers or missing observations. Explain precisely what is measured, dates, units, and source. If nearest_station_match exists, explicitly state that results are from a nearby station rather than from the requested town itself; include distance in km and mention terrain differences. Distinguish automatic observations from climatological normals and numerical forecasts. If no records, say unavailable. Be succinct and insightful.';
