@@ -1,0 +1,6 @@
+/app/build/
+/.gradle/
+/local.properties
+/app/src/main/assets/ims-bootstrap.txt
+*.keystore
+*.jks
