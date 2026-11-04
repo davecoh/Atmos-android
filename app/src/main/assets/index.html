@@ -3,7 +3,7 @@
 .chat-shell{display:flex;flex-direction:column;gap:12px}.chat-log{min-height:270px;max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px}.chat-bubble{white-space:pre-wrap;border-radius:17px;padding:14px 16px;line-height:1.6;max-width:94%;font-size:14px}.chat-bubble.user{align-self:flex-start;background:#1c6370;color:#f3ffff}.chat-bubble.assistant{align-self:flex-end;background:#1b344e;border:1px solid #34556a}.chat-compose{display:flex;gap:8px;align-items:stretch}.chat-compose textarea{flex:1;min-width:0;min-height:52px;max-height:130px;background:#142b42;border:1px solid #3b5871;border-radius:12px;padding:12px;color:white;resize:vertical;font:inherit}.chat-compose button{align-self:stretch;min-width:70px}.chat-examples{display:flex;gap:7px;flex-wrap:wrap}.chat-examples button{font-size:12px;padding:8px 10px;background:#1b3449}@keyframes atmosBreathe{0%,100%{opacity:.63}50%{opacity:1}}.chat-bubble.assistant.loading{animation:atmosBreathe 1.4s ease-in-out infinite}.forecast-chart{width:100%;height:auto;display:block;background:#10283e;border-radius:14px;padding:7px}.source-post{padding:12px 0;border-bottom:1px solid #33516c}.source-post:last-child{border-bottom:0}.source-post small{display:block;margin-top:3px}.day .spread{color:#67d5cc;font-size:11px;display:block}.source-links{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;margin:12px 0}.weather-note{font-size:12px;color:#9cbad2}</style></head><body><main>
 <header><div><h1>☁ אטמוס</h1><small>תחזית חכמה · ישראל</small></div><span id="status">מתחבר למודלים…</span></header>
 <section id="forecast"><div class="controls"><select id="place"><option value="32.763,35.663">כפר חרוב · דרום הגולן</option><option value="32.996,35.689">קצרין</option><option value="32.821,35.762">אבני איתן</option><option value="32.795,35.53">טבריה</option><option value="32.814,34.99">חיפה</option><option value="32.085,34.782">תל אביב</option><option value="31.769,35.216">ירושלים</option></select><button id="refresh">↻ רענון</button></div>
-<div id="error" class="error hide"></div><div class="hero"><small id="heroPlace">כפר חרוב</small><div id="todayTemp">—°</div><small id="currentTempLabel">טמפרטורה נוכחית — הערכת מודל</small><div id="summary">טוען את ECMWF, ICON ו-GFS…</div><p id="todayRange" style="margin:5px 0 14px">מינימום —° · מקסימום —°</p><div class="grid"><div class="tile"><span>גשם · 5 ימים</span><strong id="rainTotal">—</strong></div><div class="tile"><span>רוח מרבית</span><strong id="windMax">—</strong></div></div></div>
+<div id="error" class="error hide"></div><div class="hero"><small id="heroPlace">כפר חרוב</small><div id="todayTemp">—°</div><small id="currentTempLabel">טמפרטורה נוכחית — הערכת מודל</small><p id="imsCurrentObservation" class="weather-note"></p><div id="summary">טוען את ECMWF, ICON ו-GFS…</div><p id="todayRange" style="margin:5px 0 14px">מינימום —° · מקסימום —°</p><div class="grid"><div class="tile"><span>גשם · 5 ימים</span><strong id="rainTotal">—</strong></div><div class="tile"><span>רוח מרבית</span><strong id="windMax">—</strong></div></div></div>
 <h2>טמפרטורות לאורך היום</h2><div class="panel"><div id="tempChart">מכין גרף…</div><p class="weather-note">הקו: תחזית שעתית · האזור המוצלל: טווח בין מודלים (אינו טווח שגיאה סטטיסטי).</p></div><h2>חמשת הימים הקרובים</h2><div id="days" class="days"></div><h2>מגמות ועדכונים אחרונים 🌦️</h2><div class="panel"><div id="newsStatus" class="legend">מחפש עדכונים מהימים האחרונים…</div><div id="weatherNews"></div><div class="source-links"><a href="https://www.weather2day.co.il/models" target="_blank" rel="noopener">מפות Weather2day</a><a href="https://www.weather2day.co.il/models/cosmo/temperature" target="_blank" rel="noopener">מפת COSMO טמפרטורה</a><a href="https://www.weather2day.co.il/models/cosmo/precipitation" target="_blank" rel="noopener">מפת COSMO גשם</a><a href="https://t.me/s/MezgAvirIL" target="_blank" rel="noopener">שלמה בטלגרם</a></div><p class="weather-note">עדכוני הקהילה הם פרשנות ומגמות בלבד, לא מדידות למיקום. המפות נפתחות במקור ולא מפוענחות אוטומטית.</p></div><h2>השוואת המודלים</h2><div class="panel"><div class="controls"><button data-metric="rain" class="metric active">גשם</button><button data-metric="max" class="metric">טמפרטורה</button><button data-metric="wind" class="metric">רוח</button></div><div class="legend">ECMWF (אירופי) | ICON (גרמני) | GFS (אמריקאי)</div><div id="comparison"></div></div><p>מקור: Open-Meteo. המודלים הם תחזיות מספריות, לא ניתוח מפות סינופטיות. הממוצע אינו הסתברות סטטיסטית לגשם.</p></section>
 <section id="history" class="hide"><h2>ארכיון השמ״ט</h2><p>נתונים היסטוריים ישירות מהשירות המטאורולוגי הישראלי. אין צורך בשרת נוסף.</p><div class="panel"><div id="imsTokenStatus" class="legend">בדיקת חיבור…</div><button id="configureIMS">הזנת / החלפת טוקן חד־פעמית</button><button id="stationsBtn" class="primary">טעינת תחנות</button><label>תחנת מדידה</label><select id="station"><option value="">טען תחנות תחילה</option></select><label>מתאריך</label><input id="from" type="date"><label>עד תאריך</label><input id="to" type="date"><button id="runHistory" class="primary">חשב סטטיסטיקה</button></div><div id="historyResult" class="panel">בחר תחנה וטווח תאריכים של עד 32 ימים.</div><p>מדידות תחנה אוטומטיות אינן בהכרח נתונים אקלימיים מבוקרים. נתונים חסרים עשויים להשפיע על הממוצעים.</p></section><section id="chat" class="hide"><h2>✦ אטמוס AI</h2><p>יש שאלה על גשם, שמש או קור? אני כאן ☁️</p><div class="panel"><strong>התחברות למנוי ChatGPT</strong><p id="gptStatus">רק רגע ☁️</p><div class="controls"><button id="gptLogin" class="primary">התחבר עם ChatGPT</button><button id="gptLogout">התנתק</button></div><label for="gptModel">מודל לשיחה</label><select id="gptModel" aria-label="בחירת מודל"><option value="">התחבר תחילה</option></select><p class="legend">השיחה משתמשת במכסת ChatGPT שאישרת.</p></div><div class="panel chat-shell"><div id="chatMessages" class="chat-log" role="log" aria-live="polite"></div><div class="chat-examples"><button data-chat-example="כמה גשם ירד באבני איתן באוקטובר 2025?">גשם באוקטובר</button><button data-chat-example="מה הטמפרטורה הממוצעת במרום גולן בחודש שעבר?">טמפרטורה חודשית</button><button data-chat-example="השווה גשם בגמלא באוקטובר 2025 לעומת שנה קודמת">השוואת שנים</button></div><div class="chat-compose"><textarea id="chatInput" aria-label="שאל שאלה על מזג האוויר" placeholder="לדוגמה: כמה גשם ירד באבני איתן באוקטובר 2025?"></textarea><button class="primary" id="chatSend">שלח</button></div></div><p>הערה קטנה: תחזיות הן תחזיות, ונתונים חסרים הם לא אפס גשם. 🌦️</p></section></main><nav class="bottom"><button id="forecastTab" class="active">☀ תחזית</button><button id="historyTab">▤ היסטוריה</button><button id="chatTab">✦ אטמוס AI</button></nav>
 <script>
@@ -77,6 +77,46 @@ function renderHourlyTemperature(modelsData){
   '<text x="3" y="'+(y(v)+4)+'" font-size="10" fill="#b7cbd9">'+Math.round(v)+'°</text>').join('')+
   '<polygon points="'+poly+'" fill="#2ab3b1" fill-opacity=".24"/><polyline points="'+line+'" fill="none" stroke="#69e2d2" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+ticks+'</svg>';
 }
+async function findRecentIMSTemperature(placeLat,placeLon,seq){
+ // Show a real nearby measurement alongside, not as a substitute for the
+ // point-specific model temperature. Old or invalid observations are ignored.
+ const target=$('imsCurrentObservation');
+ target.textContent='';
+ if(!window.AtmosIMS?.isConfigured())return;
+ try{
+  const raw=await imsRequest('');
+  if(seq!==forecastSeq)return;
+  const available=imsList(raw).map(x=>{
+   let loc=x.location||x.coordinates||{};
+   const lat=Number(loc.latitude??loc.lat??x.latitude);
+   const lon=Number(loc.longitude??loc.lon??loc.lng??x.longitude);
+   const monitors=Array.isArray(x.monitors)?x.monitors:[];
+   const td=monitors.some(m=>String(m.name||'').toUpperCase()==='TD'&&m.active!==false);
+   if(!Number.isFinite(lat)||!Number.isFinite(lon)||!td)return null;
+   const distance=Math.hypot((lat-placeLat)*111,(lon-placeLon)*93);
+   return {id:x.stationId??x.id,name:hebrewStationName(x.name||x.stationName||''),distance};
+  }).filter(Boolean).filter(x=>x.distance<=35).sort((a,b)=>a.distance-b.distance).slice(0,3);
+  for(const station of available){
+   let reply;
+   try{reply=await imsRequest('/'+station.id+'/data/latest');}catch(e){continue;}
+   if(seq!==forecastSeq)return;
+   const records=imsList(reply);
+   const rows=records.length?records:(reply?.channels?[reply]:reply?.data?.channels?[reply.data]:[]);
+   const fresh=rows.map(row=>{
+    const t=Date.parse(row.datetime||'');
+    const age=Math.abs(Date.now()-t)/60000;
+    const entry=(row.channels||[]).find(c=>String(c.name||'').toUpperCase()==='TD' &&
+      Number.isFinite(c.value)&&c.valid!==false&&c.status!==2);
+    return {temp:entry?.value,age,datetime:row.datetime};
+   }).filter(x=>Number.isFinite(x.temp)&&x.age<=130).sort((a,b)=>a.age-b.age);
+   if(fresh.length){
+    const item=fresh[0];
+    target.textContent='🌡️ נמדד בתחנת '+station.name+' ('+Math.round(station.distance)+' ק״מ מכאן): '+fmt(item.temp,1)+'° · לא מדידה ביישוב עצמו';
+    return;
+   }
+  }
+ }catch(e){ /* Optional observation: model forecast remains usable. */ }
+}
 async function load(){
  const seq=++forecastSeq;
  $('error').classList.add('hide');$('status').textContent='מעדכן…';
@@ -136,6 +176,7 @@ async function load(){
   renderHourlyTemperature(current.length?current:(primary?[{hourly:primary.hourly}]:[]));
   $('status').textContent='עודכן '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
   renderComparison();
+  void findRecentIMSTemperature(Number(latitude),Number(longitude),seq);
  }catch(e){
   if(seq!==forecastSeq)return;
   $('error').textContent='לא הצלחתי לעדכן כרגע. אפשר לנסות לרענן.';
