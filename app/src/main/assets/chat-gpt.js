@@ -151,42 +151,95 @@ function chunks(from,to){
  return parts;
 }
 async function historyTool(plan,stations){
- if(!window.AtmosIMS?.isConfigured())throw Error('חסר טוקן שמ״ט. פתח את לשונית היסטוריה והזן אותו פעם אחת.');
- if(!METRICS.includes(plan.metric))throw Error('פרמטר לא נתמך');
+ if(!window.AtmosIMS?.isConfigured())throw Error('IMS_NOT_CONFIGURED');
+ if(!METRICS.includes(plan.metric))throw Error('INVALID_METRIC');
  let ss=Array.isArray(plan.stations)?plan.stations:[],rr=Array.isArray(plan.periods)?plan.periods:[];
- let nearestMatch=null;
- const place=String(plan.place||plan.locationName||'').trim();
- if(plan.match_strategy==='nearest'||(place&&!ss.length)){
-   const geo=await geocode(place);
-   const candidates=chooseNearby(stations,geo,plan.metric);
-   nearestMatch={place:geo.label,source:geo.source,candidates:candidates.map(x=>({name:x.name,id:x.id,distance_km:Math.round(x.distanceKm*10)/10}))};
-   ss=[candidates[0].id];
+ if(ss.length>2||rr.length===0||rr.length>2)throw Error('INVALID_QUERY');
+ const requested=String(plan.place||plan.locationName||'').trim();
+ let nearestMatch=null, alternatives=[];
+ if(plan.match_strategy==='nearest'||(requested&&!ss.length)){
+   const geo=await geocode(requested);
+   alternatives=chooseNearby(stations,geo,plan.metric);
+   nearestMatch={place:geo.label,source:geo.source,candidates:alternatives.map(x=>({name:x.name,id:x.id,distance_km:Math.round(x.distanceKm*10)/10}))};
+   ss=[alternatives[0].id];
  }
-
- if(ss.length===0||ss.length>2||rr.length===0||rr.length>2||ss.length*rr.length>4)throw Error('מותר להשוות עד שתי תחנות ושתי תקופות');
+ if(!ss.length)throw Error('STATION_NOT_FOUND');
  const output=[];
- for(const stationId of ss){
-  const info=stations.find(s=>s.id===Number(stationId));if(!info)throw Error('מזהה התחנה אינו ברשימה');
-  const meta=await window.imsRequest('/'+info.id);
-  for(const range of rr){
-   let from=String(range.from),to=String(range.to);
-   if(!validDate(from)||!validDate(to)||dateDiff(from,to)<0||dateDiff(from,to)>185)throw Error('טווח תאריכים לא חוקי (עד 186 ימים לתקופה)');
-   let rows=[],missingSegments=[];
-   for(const [a,b] of chunks(from,to)){
-    let path='/'+info.id+'/data?from='+a.replaceAll('-','/')+'&to='+b.replaceAll('-','/');
-    const batch=await window.imsRequest(path);
-    if(batch?._httpStatus===204){missingSegments.push({from:a,to:b,httpStatus:204});continue;}
-    const observations=window.imsList(batch);
-    if(!observations.length)missingSegments.push({from:a,to:b,reason:'empty'});
-    rows.push(...observations);
+ const channelKey=({rain:'Rain',temp:'TD',max:'TDmax',min:'TDmin',wind:'WS',gust:'WSmax',humid:'RH'})[plan.metric];
+ const unit=({rain:'mm',temp:'C',max:'C',min:'C',wind:'m/s',gust:'m/s',humid:'%'})[plan.metric];
+ let attempts=0;
+ async function readRange(station,from,to){
+   // A broad query can return no content even if a shorter request works.
+   // Probe weekly only after a genuinely empty broad response.
+   async function probe(a,b){
+     attempts++;
+     const path='/'+station.id+'/data?from='+a.replaceAll('-','/')+'&to='+b.replaceAll('-','/');
+     const reply=await window.imsRequest(path);
+     return reply?._httpStatus===204?[]:window.imsList(reply);
    }
-   if(!rows.length)throw Error('לא הוחזרו מדידות לתחנה '+info.name+' בתקופה '+from+' עד '+to+' (HTTP 204 / תגובה ריקה). ייתכן שטווח התאריכים קדם לתחילת פעילות התחנה או שהארכיון אינו זמין דרך ממשק המדידות האוטומטיות. לא ניתן להסיק שכמות הגשם הייתה אפס.');
-   const s=window.imsStatistics(rows,meta);
-   const key=({rain:'Rain',temp:'TD',max:'TDmax',min:'TDmin',wind:'WS',gust:'WSmax',humid:'RH'})[plan.metric];
-   output.push({station:info.name,station_id:info.id,station_coordinates:info.location,nearest_station_match:nearestMatch,period:{from,to},metric:plan.metric,value:missingSegments.length&&plan.metric==='rain'?null:s[plan.metric],partial_value:s[plan.metric],missing_segments:missingSegments,completeness:missingSegments.length?'incomplete':'not_verified',matching_measurements:s.counts[key]||0,records:s.samples,invalid:s.rejected,units:({rain:'mm',temp:'C',max:'C',min:'C',wind:'m/s',gust:'m/s',humid:'%'})[plan.metric]});
-  }
+   let rows=[],missing=[];
+   for(const [a,b] of chunks(from,to)){
+     let part=[];
+     try{part=await probe(a,b);}catch(err){console.warn('IMS query unavailable for requested period',String(err));}
+     if(!part.length&&dateDiff(a,b)>=7){
+       let cursor=new Date(a+'T12:00:00Z'),stop=new Date(b+'T12:00:00Z');
+       while(cursor<=stop){
+         const begin=isoLocal(cursor),until=new Date(cursor);
+         until.setUTCDate(until.getUTCDate()+6);if(until>stop)until.setTime(stop.getTime());
+         const finish=isoLocal(until);
+         try{const weekly=await probe(begin,finish);if(weekly.length)part.push(...weekly);else missing.push({from:begin,to:finish});}
+         catch(err){missing.push({from:begin,to:finish});console.warn('IMS weekly query unavailable',String(err));}
+         cursor=new Date(until);cursor.setUTCDate(cursor.getUTCDate()+1);
+       }
+     }else if(!part.length)missing.push({from:a,to:b});
+     rows.push(...part);
+   }
+   return {rows,missing};
  }
- return {kind:'IMS_observations',results:output,notes:'Automatic IMS weather-station observations, not direct measurements at a nearby town. Nearest selection based on great-circle distance and available channel metadata; mountain elevation/terrain may affect representativeness. Null = unavailable. Rain sum assumes per-interval Rain values. If missing_segments exist, rainfall totals must not be claimed as complete; show partial_value explicitly as partial. No completeness certification.'};
+ async function measure(station,from,to){
+   let meta={};
+   try{meta=await window.imsRequest('/'+station.id);}catch(err){console.warn('Station metadata unavailable',String(err));}
+   const {rows,missing}=await readRange(station,from,to);
+   if(!rows.length)return {station:station.name,id:station.id,available:false,reason:'no_observations',missing_segments:missing,records:0,matching_measurements:0};
+   const stats=window.imsStatistics(rows,meta);
+   const count=stats.counts[channelKey]||0;
+   if(!count||stats[plan.metric]===null)
+     return {station:station.name,id:station.id,available:false,reason:'requested_measurement_missing',missing_segments:missing,records:stats.samples,matching_measurements:count};
+   return {station:station.name,id:station.id,available:true,partial_value:stats[plan.metric],value:missing.length&&plan.metric==='rain'?null:stats[plan.metric],missing_segments:missing,records:stats.samples,matching_measurements:count,completeness:missing.length?'partial':'not_verified'};
+ }
+ for(const range of rr){
+   const from=String(range.from),to=String(range.to);
+   if(!validDate(from)||!validDate(to)||dateDiff(from,to)<0||dateDiff(from,to)>185)throw Error('INVALID_DATE_RANGE');
+   for(const stationId of ss){
+     const primary=stations.find(x=>x.id===Number(stationId));
+     if(!primary)throw Error('STATION_NOT_FOUND');
+     // Only switch automatically when geographic proximity was requested.
+     const candidates=nearestMatch?alternatives:[primary];
+     let picked=null,attempted=[];
+     for(const station of candidates){
+       const result=await measure(station,from,to);
+       attempted.push({station:station.name,id:station.id,available:result.available,reason:result.reason||null});
+       if(result.available){picked=result;break;}
+     }
+     if(!picked){
+       output.push({status:'unavailable',requested_place:nearestMatch?.place||primary.name,
+         period:{from,to},metric:plan.metric,unit,attempted_stations:attempted,nearest_station_match:nearestMatch,
+         message:'No usable measurements were retrieved. This does not mean zero precipitation.'});
+       continue;
+     }
+     const chosen=stations.find(x=>x.id===picked.id);
+     output.push({status:'measured',requested_place:nearestMatch?.place||primary.name,
+       station:picked.station,station_id:picked.id,station_coordinates:chosen?.location||null,
+       station_distance_km:nearestMatch?.candidates.find(x=>x.id===picked.id)?.distance_km??null,
+       station_selection:nearestMatch?'nearest_with_available_data':'explicit_station',
+       attempted_stations:attempted,period:{from,to},metric:plan.metric,unit,
+       value:picked.value,partial_value:picked.partial_value,
+       completeness:picked.completeness,missing_segments:picked.missing_segments,
+       matching_measurements:picked.matching_measurements,records:picked.records});
+   }
+ }
+ return {kind:'IMS_observations',results:output,attempted_api_requests:attempts,
+ notes:'These are automatic weather-station observations, not necessarily controlled official climatology. If value=null and partial_value exists, it is NOT a full-period total. A nearby station is not a measurement at the requested town. If status=unavailable, say that the requested data could not be found; NEVER invent a number or switch years without user consent.'};
 }
 function forecastTool(){
  if(!Array.isArray(window.current)&&typeof current==='undefined')throw Error('יש לפתוח קודם את לשונית תחזית כדי לטעון מודלים');
