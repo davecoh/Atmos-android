@@ -38,6 +38,7 @@ public final class ChatGPTNative {
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private volatile boolean loginBusy=false;
     private volatile ServerSocket callbackServer;
+    private volatile String lastState="idle";
     ChatGPTNative(Activity a,WebView w){activity=a;web=w;}
     private String random(int bytes) {
         byte[] b=new byte[bytes];new SecureRandom().nextBytes(b);
@@ -88,21 +89,39 @@ public final class ChatGPTNative {
         String v=Base64.encodeToString(encrypt(p.toString()),Base64.NO_WRAP);
         if(!activity.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putString("profile",v).commit())throw new Exception("Credentials not saved");
     }
+    private void record(String state,String message){
+        lastState=state;
+        activity.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit()
+            .putString("auth_state",state).putString("auth_message",message).apply();
+        call("atmosLoginResult",state,message);
+    }
+    @JavascriptInterface public String diagnostic(){
+        android.content.SharedPreferences p=activity.getSharedPreferences(PREF,Context.MODE_PRIVATE);
+        JSONObject info=new JSONObject();
+        try {
+            boolean ok=connected();
+            info.put("connected",ok);
+            info.put("state",ok?"success":p.getString("auth_state","idle"));
+            info.put("message",ok?"ההרשאות נשמרו במכשיר":p.getString("auth_message","לא בוצעה התחברות"));
+        }catch(Exception ignored){}
+        return info.toString();
+    }
     @JavascriptInterface public boolean connected(){
         JSONObject p=profile();return p!=null&&p.has("refresh_token")&&p.optString("scopes").contains("chatgpt.tokens.use.direct");
     }
     @JavascriptInterface public void signIn(){
         if(loginBusy)return;loginBusy=true;
+        record("progress","מתחיל תהליך התחברות…");
         io.execute(()->{
             try {signInInternal();}
-            catch(Exception e){call("atmosLoginResult","error",e.getMessage());}
+            catch(Exception e){record("error",e.getMessage()==null?"Unknown OAuth error":e.getMessage());}
             finally {loginBusy=false;closeServer();}
         });
     }
     private void closeServer(){try{if(callbackServer!=null)callbackServer.close();}catch(Exception ignored){}callbackServer=null;}
     private void signInInternal()throws Exception{
         JSONObject old=profile();
-        String client=old==null?"dynamic_agent_client":old.optString("client_id");
+        String client=old==null?activity.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString("registered_client","dynamic_agent_client"):old.optString("client_id");
         if(client.isEmpty())client="dynamic_agent_client";
         String state=random(24),nonce=random(24),verifier=random(32);
         byte[] hash=MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII));
@@ -120,9 +139,9 @@ public final class ChatGPTNative {
             .appendQueryParameter("state",state).appendQueryParameter("nonce",nonce)
             .appendQueryParameter("code_challenge_method","S256")
             .appendQueryParameter("code_challenge",challenge);
-        if(old==null)u.appendQueryParameter("agent_name_hint","Atmos Weather");
+        if("dynamic_agent_client".equals(client))u.appendQueryParameter("agent_name_hint","Atmos Weather");
         else {String id=old.optString("id_token");if(!id.isEmpty())u.appendQueryParameter("id_token_hint",id);}
-        call("atmosLoginResult","progress","פתיחת דפדפן לאישור ChatGPT…");
+        record("progress","ממתין לאישור בדפדפן ChatGPT…");
         ui.post(()->activity.startActivity(new Intent(Intent.ACTION_VIEW,u.build()).addCategory(Intent.CATEGORY_BROWSABLE)));
         Socket sock=server.accept();sock.setSoTimeout(15000);
         BufferedReader reader=new BufferedReader(new InputStreamReader(sock.getInputStream(),StandardCharsets.UTF_8));
@@ -135,17 +154,22 @@ public final class ChatGPTNative {
         String error=query.getQueryParameter("error");
         String code=query.getQueryParameter("code");
         String issued=query.getQueryParameter("client_id");
-        if(old==null){if(issued==null||!issued.startsWith("oaiapp_"))throw new Exception("No issued client ID");client=issued;}
-        else if(issued!=null&&!issued.equals(client))throw new Exception("OAuth client mismatch");
-        String page=error!=null?"Authorization cancelled":"Authorization received. Return to Atmos.";
+        if("dynamic_agent_client".equals(client)){
+            if(issued==null||!issued.startsWith("oaiapp_"))throw new Exception("Missing issued client ID in OAuth callback");
+            client=issued;
+            activity.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putString("registered_client",client).commit();
+        } else if(issued!=null&&!issued.equals(client))throw new Exception("OAuth client mismatch");
+        String page=error!=null?"Authorization cancelled":"Authorization callback received. The app is verifying your sign-in. Return to Atmos.";
         byte[] body=("<html><body><h2>"+page+"</h2><p>You may close this page.</p></body></html>").getBytes(StandardCharsets.UTF_8);
         OutputStream out=sock.getOutputStream();
         out.write(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "+body.length+"\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
         out.write(body);out.flush();sock.close();closeServer();
         if(error!=null)throw new Exception("Sign-in cancelled: "+error);
         if(code==null||code.isEmpty())throw new Exception("Missing authorization code");
+        record("progress","קוד ההרשאה התקבל. מחליף אותו בטוקנים…");
         String data="grant_type=authorization_code&client_id="+enc(client)+"&code="+enc(code)+"&code_verifier="+enc(verifier)+"&redirect_uri="+enc(redirect)+"&resource="+enc(RESOURCE);
         JSONObject token=postForm(TOKEN,data);
+        record("progress","טוקנים התקבלו. מאמת חתימה והרשאות…");
         JSONObject claims=verifyIdToken(token.getString("id_token"),client,nonce);
         String scopes=token.optString("scope");
         if(!Arrays.asList(scopes.split(" ")).contains("chatgpt.tokens.use.direct"))throw new Exception("ChatGPT plan usage permission not granted");
@@ -156,7 +180,7 @@ public final class ChatGPTNative {
         saved.put("refresh_token",token.getString("refresh_token"));saved.put("scopes",scopes);
         saved.put("expires_at",System.currentTimeMillis()+1000L*token.optLong("expires_in",3600));
         save(saved);
-        call("atmosLoginResult","success",claims.optString("email","ChatGPT account"));
+        record("success",claims.optString("email","ChatGPT account"));
     }
     private JSONObject verifyIdToken(String jwt,String client,String nonce)throws Exception{
         String[] part=jwt.split("\\.");if(part.length!=3)throw new Exception("Malformed ID token");
@@ -242,7 +266,7 @@ public final class ChatGPTNative {
     @JavascriptInterface public void logout(){io.execute(()->{
         // Local sign-out; remote refresh-token revocation requires confirmation.
         activity.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().remove("profile").apply();
-        call("atmosLoginResult","signedout","Local credentials cleared; remote revocation not confirmed");
+        record("signedout","הנתונים המקומיים נוקו. ביטול הרשאות בצד השרת לא אומת.");
     });}
     void shutdown(){closeServer();io.shutdownNow();}
 }
