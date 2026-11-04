@@ -172,6 +172,7 @@ async function historyTool(plan,stations){
    // A broad query can return no content even if a shorter request works.
    // Probe weekly only after a genuinely empty broad response.
    async function probe(a,b){
+     if(attempts>=28)return [];
      attempts++;
      const path='/'+station.id+'/data?from='+a.replaceAll('-','/')+'&to='+b.replaceAll('-','/');
      const reply=await window.imsRequest(path);
@@ -213,8 +214,14 @@ async function historyTool(plan,stations){
    for(const stationId of ss){
      const primary=stations.find(x=>x.id===Number(stationId));
      if(!primary)throw Error('STATION_NOT_FOUND');
-     // Only switch automatically when geographic proximity was requested.
-     const candidates=nearestMatch?alternatives:[primary];
+     // For an unavailable explicit station, try geographically close alternatives,
+     // but disclose the substituted station and never present it as the requested one.
+     let candidates=nearestMatch?alternatives:[primary];
+     if(!nearestMatch&&primary.location){
+       const nearby=chooseNearby(stations,primary.location,plan.metric)
+         .filter(x=>x.id!==primary.id && x.distanceKm<=35).slice(0,2);
+       candidates=[primary,...nearby];
+     }
      let picked=null,attempted=[];
      for(const station of candidates){
        const result=await measure(station,from,to);
@@ -230,8 +237,11 @@ async function historyTool(plan,stations){
      const chosen=stations.find(x=>x.id===picked.id);
      output.push({status:'measured',requested_place:nearestMatch?.place||primary.name,
        station:picked.station,station_id:picked.id,station_coordinates:chosen?.location||null,
-       station_distance_km:nearestMatch?.candidates.find(x=>x.id===picked.id)?.distance_km??null,
-       station_selection:nearestMatch?'nearest_with_available_data':'explicit_station',
+       station_distance_km:nearestMatch?.candidates.find(x=>x.id===picked.id)?.distance_km??
+         ((picked.id!==primary.id&&primary.location&&chosen?.location)?
+           Math.round(kmDistance(primary.location,chosen.location)*10)/10:null),
+       station_selection:nearestMatch?'nearest_with_available_data':
+         (picked.id===primary.id?'explicit_station':'nearby_fallback'),
        attempted_stations:attempted,period:{from,to},metric:plan.metric,unit,
        value:picked.value,partial_value:picked.partial_value,
        completeness:picked.completeness,missing_segments:picked.missing_segments,
@@ -310,12 +320,24 @@ async function send(raw){
   bubble.textContent='מחבר את הנקודות ✨';
   const responsePrompt='You are Atmos, a careful Hebrew weather assistant. Respond in Hebrew. User question: '+fullQuestion+
   '\nEarlier dialog:\n'+recent+'\nVERIFIED TOOL OUTPUT (source of numerical truth):\n'+JSON.stringify(result)+
-  '\nNever invent values, station identifiers or missing observations. Explain precisely what is measured, dates, units, and source. If nearest_station_match exists, explicitly state that results are from a nearby station rather than from the requested town itself; include distance in km and mention terrain differences. Distinguish automatic observations from climatological normals and numerical forecasts. If no records, say unavailable. Be succinct and insightful.';
+  '\nWrite a SHORT, warm, user-facing answer in natural Hebrew. Never expose internal error messages, API statuses, codes, JSON keys, debugging or data-loading details. Do not mention attempted_api_requests. Never invent measured values, missing observations or stations. When all results have status unavailable, say simply that reliable measurements for the requested years could not be found, and offer to try other years or nearby stations. When nearby_fallback or nearest_with_available_data was used, clearly state which station was measured (not the requested town), and mention distance when available. For partial observations, explicitly call the sum partial, NOT a monthly total. Distinguish observations from forecasts. Keep concise and friendly.';
   const answer=await callGPT(responsePrompt);
   bubble.textContent=answer;
   history.push({role:'assistant',text:answer});
   history=history.slice(-10);
- }catch(e){const message='השאילתה לא הושלמה: '+e.message;bubble.textContent=message;history.push({role:'assistant',text:message});history=history.slice(-10);}
+ }catch(e){
+   console.warn('Atmos weather request failed',String(e));
+   const problem=String(e?.message||'');
+   let message='לא מצאתי כרגע תשובה מספיק אמינה 🌦️ אפשר לנסות תקופה אחרת או תחנה סמוכה?';
+   if(problem.includes('IMS_NOT_CONFIGURED')||problem.includes('טוקן שמ״ט'))
+     message='חסר לי חיבור לנתוני המדידות. אפשר לבדוק אותו בלשונית היסטוריה.';
+   else if(problem.includes('INVALID_DATE_RANGE')||problem.includes('טווח תאריכים'))
+     message='בוא ננסה טווח קצר יותר — עד כחצי שנה בכל שאלה 🙂';
+   else if(problem.includes('STATION_NOT_FOUND')||problem.includes('לא נמצאו קואורדינטות'))
+     message='לא הצלחתי לזהות את המקום. אפשר לנסות שם יישוב אחר?';
+   bubble.textContent=message;
+   history.push({role:'assistant',text:message});history=history.slice(-10);
+}
  finally{bubble.classList.remove('loading');busy=false;$('chatSend').disabled=false;}
 }
 window.AtmosGPTChat={setup,send};
