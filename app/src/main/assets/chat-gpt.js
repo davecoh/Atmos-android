@@ -29,10 +29,33 @@ window.atmosLoginResult=(type,message)=>{
  if(type==='signedout'){status('התנתקת מקומית. ביטול ההרשאה בשרת לא אומת.');$('gptModel').replaceChildren();}
  if(type==='success'){status('אושרה התחברות: '+message);getNative().listModels('models'+(++seq));}
 };
+let wasConnected=false;
+function refreshLoginStatus(){
+ const g=getNative();if(!g)return;
+ const connected=g.connected();
+ let info={};
+ try{info=JSON.parse(g.diagnostic());}catch(e){info={state:"idle",message:"יש להתחבר עם ChatGPT"};}
+ if(connected){
+   if(!wasConnected||!$('gptModel').value){
+     status('ההתחברות נשמרה. טוען מודלים זמינים…');
+     g.listModels('models'+(++seq));
+   }
+ }else if(info.state==="error"){
+   status('שגיאת התחברות: '+info.message);
+ }else if(info.state==="progress"){
+   status(info.message+' אם הדפדפן כבר נסגר, המתן לתוצאה או נסה שוב.');
+ }else{
+   status('יש להתחבר עם ChatGPT ולאשר שימוש במכסת המנוי.');
+ }
+ wasConnected=connected;
+}
 async function setup(){
  const g=getNative();if(!g){status('נדרשת גרסה תומכת בהתחברות ChatGPT');return;}
- if(g.connected()){status('טוען מודלים מחשבון ChatGPT…');g.listModels('models'+(++seq));}
- else status('יש להתחבר עם ChatGPT ולאשר שימוש במכסת המנוי.');
+ refreshLoginStatus();
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLoginStatus()});
+ window.addEventListener('focus',refreshLoginStatus);
+ window.addEventListener('pageshow',refreshLoginStatus);
+
  $('gptLogin').onclick=()=>{status('ממתין להתחברות…');g.signIn()};
  $('gptLogout').onclick=()=>{g.logout()};
 }
