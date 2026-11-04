@@ -284,15 +284,6 @@ public final class ChatGPTNative {
         }
     }
 
-        HttpURLConnection c=(HttpURLConnection)new URL(uri).openConnection();try{
-            c.setConnectTimeout(15000);c.setReadTimeout(60000);c.setRequestMethod(method);
-            c.setRequestProperty("Accept","application/json");if(bearer!=null)c.setRequestProperty("Authorization","Bearer "+bearer);
-            if(data!=null){c.setDoOutput(true);c.setRequestProperty("Content-Type",contentType);c.getOutputStream().write(data.getBytes(StandardCharsets.UTF_8));}
-            int status=c.getResponseCode();String raw=read(status<400?c.getInputStream():c.getErrorStream());
-            if(status<200||status>=300)throw new Exception("OpenAI HTTP "+status+": "+raw.substring(0,Math.min(raw.length(),300)));
-            return new JSONObject(raw);
-        }finally{c.disconnect();}
-    }
     private JSONObject postForm(String url,String data)throws Exception{return request(url,"POST","application/x-www-form-urlencoded",data,null);}
     private JSONObject getJson(String uri,String bearer)throws Exception{return request(uri,"GET",null,null,bearer);}
     private String accessToken()throws Exception{
