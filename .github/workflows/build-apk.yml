@@ -32,6 +32,19 @@ jobs:
                   f.flush()
                   subprocess.run(['node','--check',f.name], check=True)
           PY
+      - name: Provision IMS credential from GitHub Actions secret
+        id: ims
+        env:
+          IMS_API_TOKEN: ${{ secrets.IMS_API_TOKEN }}
+        shell: bash
+        run: |
+          if [ -n "$IMS_API_TOKEN" ]; then
+            printf '%s' "$IMS_API_TOKEN" > app/src/main/assets/ims-bootstrap.txt
+            echo "bundled=true" >> "$GITHUB_OUTPUT"
+          else
+            : > app/src/main/assets/ims-bootstrap.txt
+            echo "bundled=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
@@ -39,7 +52,9 @@ jobs:
           name: Atmos-Android-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      # Do not publicly release APK files with a credential embedded.
       - name: Publish public APK download
+        if: ${{ steps.ims.outputs.bundled != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
