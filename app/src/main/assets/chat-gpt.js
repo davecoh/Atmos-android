@@ -171,20 +171,22 @@ async function historyTool(plan,stations){
   for(const range of rr){
    let from=String(range.from),to=String(range.to);
    if(!validDate(from)||!validDate(to)||dateDiff(from,to)<0||dateDiff(from,to)>185)throw Error('טווח תאריכים לא חוקי (עד 186 ימים לתקופה)');
-   let rows=[];
+   let rows=[],missingSegments=[];
    for(const [a,b] of chunks(from,to)){
     let path='/'+info.id+'/data?from='+a.replaceAll('-','/')+'&to='+b.replaceAll('-','/');
     const batch=await window.imsRequest(path);
-    if(batch?._httpStatus===204)continue;
-    rows.push(...window.imsList(batch));
+    if(batch?._httpStatus===204){missingSegments.push({from:a,to:b,httpStatus:204});continue;}
+    const observations=window.imsList(batch);
+    if(!observations.length)missingSegments.push({from:a,to:b,reason:'empty'});
+    rows.push(...observations);
    }
    if(!rows.length)throw Error('לא הוחזרו מדידות לתחנה '+info.name+' בתקופה '+from+' עד '+to+' (HTTP 204 / תגובה ריקה). ייתכן שטווח התאריכים קדם לתחילת פעילות התחנה או שהארכיון אינו זמין דרך ממשק המדידות האוטומטיות. לא ניתן להסיק שכמות הגשם הייתה אפס.');
    const s=window.imsStatistics(rows,meta);
    const key=({rain:'Rain',temp:'TD',max:'TDmax',min:'TDmin',wind:'WS',gust:'WSmax',humid:'RH'})[plan.metric];
-   output.push({station:info.name,station_id:info.id,station_coordinates:info.location,nearest_station_match:nearestMatch,period:{from,to},metric:plan.metric,value:s[plan.metric],matching_measurements:s.counts[key]||0,records:s.samples,invalid:s.rejected,units:({rain:'mm',temp:'C',max:'C',min:'C',wind:'m/s',gust:'m/s',humid:'%'})[plan.metric]});
+   output.push({station:info.name,station_id:info.id,station_coordinates:info.location,nearest_station_match:nearestMatch,period:{from,to},metric:plan.metric,value:missingSegments.length&&plan.metric==='rain'?null:s[plan.metric],partial_value:s[plan.metric],missing_segments:missingSegments,completeness:missingSegments.length?'incomplete':'not_verified',matching_measurements:s.counts[key]||0,records:s.samples,invalid:s.rejected,units:({rain:'mm',temp:'C',max:'C',min:'C',wind:'m/s',gust:'m/s',humid:'%'})[plan.metric]});
   }
  }
- return {kind:'IMS_observations',results:output,notes:'Automatic IMS weather-station observations, not direct measurements at a nearby town. Nearest selection based on great-circle distance and available channel metadata; mountain elevation/terrain may affect representativeness. Null = unavailable. Rain sum assumes per-interval Rain values. No completeness certification.'};
+ return {kind:'IMS_observations',results:output,notes:'Automatic IMS weather-station observations, not direct measurements at a nearby town. Nearest selection based on great-circle distance and available channel metadata; mountain elevation/terrain may affect representativeness. Null = unavailable. Rain sum assumes per-interval Rain values. If missing_segments exist, rainfall totals must not be claimed as complete; show partial_value explicitly as partial. No completeness certification.'};
 }
 function forecastTool(){
  if(!Array.isArray(window.current)&&typeof current==='undefined')throw Error('יש לפתוח קודם את לשונית תחזית כדי לטעון מודלים');
@@ -232,6 +234,11 @@ async function send(raw){
    ' For forecast use action forecast. For general explanation or ambiguous station use action general with answer. Do not invent weather measurements or station IDs.';
   let plan;
   try{plan=jsonText(await callGPT(planning));}catch(e){throw Error('לא ניתן לפענח תוכנית שאילתות מהמודל: '+e.message)}
+  if(historical&&knownPlace&&plan.action==='historical'){
+    plan.match_strategy='nearest';
+    plan.place=knownPlace;
+    plan.stations=[]; // Never claim an unrelated station belongs to this town.
+  }
   let result;
   if(plan.action==='historical'){bubble.textContent='GPT בחר תחנות ותאריכים. מוריד נתוני שמ״ט…';result=await historyTool(plan,stations);}
   else if(plan.action==='forecast'){bubble.textContent='GPT בחר ניתוח תחזית המודלים…';result=forecastTool();}
