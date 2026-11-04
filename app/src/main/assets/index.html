@@ -118,6 +118,7 @@ async function findRecentIMSTemperature(placeLat,placeLon,seq){
  }catch(e){ /* Optional observation: model forecast remains usable. */ }
 }
 const mapPending=new Map();
+window.AtmosRunMapAnalysis=()=>void runMapAnalysis();
 let lastMapContext=null, mapRequestNum=0, mapInFlight=false;
 window.atmosMapAIResult=(id,answer,error)=>{
  const pending=mapPending.get(id);if(!pending)return;
@@ -185,11 +186,7 @@ async function runMapAnalysis(reload=false){
  const select=$('gptModel'),gpt=window.AtmosGPT;
  const target=$('spatialMapAnalysis'),status=$('spatialMapStatus');
  const {latitude,longitude,place,sequence}=lastMapContext;
- if(!gpt?.connected()||!select?.value){
-  status.textContent='המפה מוכנה. כדי לקבל פירוש אוטומטי, התחבר ל-ChatGPT בלשונית AI.';
-  return;
- }
- mapInFlight=true;status.textContent='קורא את המפה ☁️';target.textContent='';
+ mapInFlight=true;status.textContent='מכין מפה אזורית ☁️';target.textContent='';
  try{
   const data=await buildRegionalMap(latitude,longitude);
   if(sequence!==forecastSeq)return;
@@ -197,14 +194,21 @@ async function runMapAnalysis(reload=false){
   const canvas=data.imageCanvas;canvas.style.width='100%';canvas.style.maxWidth='420px';canvas.style.height='auto';
   canvas.setAttribute('aria-label','מפת טמפרטורות אזורית חזויה סביב '+place);
   holder.append(canvas);
+  if(!gpt?.connected()||!select?.value){
+   status.textContent='מפה עדכנית · '+data.validTime+' · לפירוש אוטומטי התחבר ל-ChatGPT.';
+   return;
+  }
+  status.textContent='קורא את המפה ☁️';
   const prompt='Analyze this ACTUAL rendered geographic temperature map of 25 forecast grid points near '+place+
    '. Valid time: '+data.validTime+' Israel time. Center point: '+data.center.temp.toFixed(1)+' Celsius. Minimum nearby: '+data.low.toFixed(1)+', maximum nearby: '+data.high.toFixed(1)+
    '. Spatial grid is around the selected location, NOT a screenshot of Weather2day maps. Distance per cell ~13 km north/south and ~11 km east/west. '+
    'Respond in Hebrew, 2-4 short sentences: qualitative north/south/east/west thermal gradients and what they imply about local confidence/uncertainty. Never invent weather conditions, pressure systems, snowfall, absolute forecast correction, or Weather2day findings; do not claim to have read their site. Explicitly say the displayed daily and current forecast numbers are unchanged, and that maps only add geographical context. No Markdown.';
   const result=await new Promise(resolve=>{
    const id='map'+(++mapRequestNum);
-   mapPending.set(id,resolve);
-   gpt.analyzeWeatherMap(prompt,data.dataUrl,select.value,id);
+   const timeout=setTimeout(()=>{if(mapPending.has(id)){mapPending.delete(id);resolve({error:'timeout'});}},55000);
+   mapPending.set(id,value=>{clearTimeout(timeout);resolve(value);});
+   try{gpt.analyzeWeatherMap(prompt,data.dataUrl,select.value,id);}
+   catch(e){clearTimeout(timeout);mapPending.delete(id);resolve({error:String(e)});}
   });
   if(sequence!==forecastSeq)return;
   if(result.error){status.textContent='התחזית מוכנה. ניתוח התמונה אינו זמין כרגע.';return;}
