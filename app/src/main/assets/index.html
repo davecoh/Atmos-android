@@ -4,7 +4,7 @@
 <header><div><h1>☁ אטמוס</h1><small>תחזית חכמה · ישראל</small></div><span id="status">מתחבר למודלים…</span></header>
 <section id="forecast"><div class="controls"><select id="place"><option value="32.763,35.663">כפר חרוב · דרום הגולן</option><option value="32.996,35.689">קצרין</option><option value="32.821,35.762">אבני איתן</option><option value="32.795,35.53">טבריה</option><option value="32.814,34.99">חיפה</option><option value="32.085,34.782">תל אביב</option><option value="31.769,35.216">ירושלים</option></select><button id="refresh">↻ רענון</button></div>
 <div id="error" class="error hide"></div><div class="hero"><small id="heroPlace">כפר חרוב</small><div id="todayTemp">—°</div><small id="currentTempLabel">טמפרטורה נוכחית — הערכת מודל</small><p id="imsCurrentObservation" class="weather-note"></p><div id="summary">טוען את ECMWF, ICON ו-GFS…</div><p id="todayRange" style="margin:5px 0 14px">מינימום —° · מקסימום —°</p><div class="grid"><div class="tile"><span>גשם · 5 ימים</span><strong id="rainTotal">—</strong></div><div class="tile"><span>רוח מרבית</span><strong id="windMax">—</strong></div></div></div>
-<h2>טמפרטורות לאורך היום</h2><div class="panel"><div id="tempChart">מכין גרף…</div><p class="weather-note">הקו: תחזית שעתית · האזור המוצלל: טווח בין מודלים (אינו טווח שגיאה סטטיסטי).</p></div><h2>חמשת הימים הקרובים</h2><div id="days" class="days"></div><h2>מגמות ועדכונים אחרונים 🌦️</h2><div class="panel"><div id="newsStatus" class="legend">מחפש עדכונים מהימים האחרונים…</div><div id="weatherNews"></div><div class="source-links"><a href="https://www.weather2day.co.il/models" target="_blank" rel="noopener">מפות Weather2day</a><a href="https://www.weather2day.co.il/models/cosmo/temperature" target="_blank" rel="noopener">מפת COSMO טמפרטורה</a><a href="https://www.weather2day.co.il/models/cosmo/precipitation" target="_blank" rel="noopener">מפת COSMO גשם</a><a href="https://t.me/s/MezgAvirIL" target="_blank" rel="noopener">שלמה בטלגרם</a></div><p class="weather-note">עדכוני הקהילה הם פרשנות ומגמות בלבד, לא מדידות למיקום. המפות נפתחות במקור ולא מפוענחות אוטומטית.</p></div><h2>השוואת המודלים</h2><div class="panel"><div class="controls"><button data-metric="rain" class="metric active">גשם</button><button data-metric="max" class="metric">טמפרטורה</button><button data-metric="wind" class="metric">רוח</button></div><div class="legend">ECMWF (אירופי) | ICON (גרמני) | GFS (אמריקאי)</div><div id="comparison"></div></div><p>מקור: Open-Meteo. המודלים הם תחזיות מספריות, לא ניתוח מפות סינופטיות. הממוצע אינו הסתברות סטטיסטית לגשם.</p></section>
+<h2>טמפרטורות לאורך היום</h2><div class="panel"><div id="tempChart">מכין גרף…</div><p class="weather-note">הקו: תחזית שעתית · האזור המוצלל: טווח בין מודלים (אינו טווח שגיאה סטטיסטי).</p></div><h2>מה רואים במפות? 🗺️</h2><div class="panel"><div id="spatialMapStatus" class="legend">בודק את התמונה האזורית…</div><div id="spatialMapImage"></div><div id="spatialMapAnalysis" style="white-space:pre-wrap;line-height:1.6;margin:10px 0"></div><button id="spatialMapRetry">נתח שוב את המפה</button><p class="weather-note">מפת טמפרטורות חזויה ל־18 שעות קדימה, מחושבת מנתוני Open-Meteo סביב היישוב. ניתוח GPT מסייע להבין הבדלים אזוריים; הוא לא מחליף מדידה ולא משנה מספרים ללא אימות.</p></div><h2>חמשת הימים הקרובים</h2><div id="days" class="days"></div><h2>מגמות ועדכונים אחרונים 🌦️</h2><div class="panel"><div id="newsStatus" class="legend">מחפש עדכונים מהימים האחרונים…</div><div id="weatherNews"></div><div class="source-links"><a href="https://www.weather2day.co.il/models" target="_blank" rel="noopener">מפות Weather2day</a><a href="https://www.weather2day.co.il/models/cosmo/temperature" target="_blank" rel="noopener">מפת COSMO טמפרטורה</a><a href="https://www.weather2day.co.il/models/cosmo/precipitation" target="_blank" rel="noopener">מפת COSMO גשם</a><a href="https://t.me/s/MezgAvirIL" target="_blank" rel="noopener">שלמה בטלגרם</a></div><p class="weather-note">עדכוני הקהילה הם פרשנות ומגמות בלבד, לא מדידות למיקום. המפות נפתחות במקור ולא מפוענחות אוטומטית.</p></div><h2>השוואת המודלים</h2><div class="panel"><div class="controls"><button data-metric="rain" class="metric active">גשם</button><button data-metric="max" class="metric">טמפרטורה</button><button data-metric="wind" class="metric">רוח</button></div><div class="legend">ECMWF (אירופי) | ICON (גרמני) | GFS (אמריקאי)</div><div id="comparison"></div></div><p>מקור: Open-Meteo. המודלים הם תחזיות מספריות, לא ניתוח מפות סינופטיות. הממוצע אינו הסתברות סטטיסטית לגשם.</p></section>
 <section id="history" class="hide"><h2>ארכיון השמ״ט</h2><p>נתונים היסטוריים ישירות מהשירות המטאורולוגי הישראלי. אין צורך בשרת נוסף.</p><div class="panel"><div id="imsTokenStatus" class="legend">בדיקת חיבור…</div><button id="configureIMS">הזנת / החלפת טוקן חד־פעמית</button><button id="stationsBtn" class="primary">טעינת תחנות</button><label>תחנת מדידה</label><select id="station"><option value="">טען תחנות תחילה</option></select><label>מתאריך</label><input id="from" type="date"><label>עד תאריך</label><input id="to" type="date"><button id="runHistory" class="primary">חשב סטטיסטיקה</button></div><div id="historyResult" class="panel">בחר תחנה וטווח תאריכים של עד 32 ימים.</div><p>מדידות תחנה אוטומטיות אינן בהכרח נתונים אקלימיים מבוקרים. נתונים חסרים עשויים להשפיע על הממוצעים.</p></section><section id="chat" class="hide"><h2>✦ אטמוס AI</h2><p>יש שאלה על גשם, שמש או קור? אני כאן ☁️</p><div class="panel"><strong>התחברות למנוי ChatGPT</strong><p id="gptStatus">רק רגע ☁️</p><div class="controls"><button id="gptLogin" class="primary">התחבר עם ChatGPT</button><button id="gptLogout">התנתק</button></div><label for="gptModel">מודל לשיחה</label><select id="gptModel" aria-label="בחירת מודל"><option value="">התחבר תחילה</option></select><p class="legend">השיחה משתמשת במכסת ChatGPT שאישרת.</p></div><div class="panel chat-shell"><div id="chatMessages" class="chat-log" role="log" aria-live="polite"></div><div class="chat-examples"><button data-chat-example="כמה גשם ירד באבני איתן באוקטובר 2025?">גשם באוקטובר</button><button data-chat-example="מה הטמפרטורה הממוצעת במרום גולן בחודש שעבר?">טמפרטורה חודשית</button><button data-chat-example="השווה גשם בגמלא באוקטובר 2025 לעומת שנה קודמת">השוואת שנים</button></div><div class="chat-compose"><textarea id="chatInput" aria-label="שאל שאלה על מזג האוויר" placeholder="לדוגמה: כמה גשם ירד באבני איתן באוקטובר 2025?"></textarea><button class="primary" id="chatSend">שלח</button></div></div><p>הערה קטנה: תחזיות הן תחזיות, ונתונים חסרים הם לא אפס גשם. 🌦️</p></section></main><nav class="bottom"><button id="forecastTab" class="active">☀ תחזית</button><button id="historyTab">▤ היסטוריה</button><button id="chatTab">✦ אטמוס AI</button></nav>
 <script>
 const $=id=>document.getElementById(id), models=[{id:'ECMWF',url:'https://api.open-meteo.com/v1/ecmwf'},{id:'ICON',url:'https://api.open-meteo.com/v1/dwd-icon'},{id:'GFS',url:'https://api.open-meteo.com/v1/gfs'}];let current=[],metric='rain';
@@ -117,6 +117,103 @@ async function findRecentIMSTemperature(placeLat,placeLon,seq){
   }
  }catch(e){ /* Optional observation: model forecast remains usable. */ }
 }
+const mapPending=new Map();
+let lastMapContext=null, mapRequestNum=0, mapInFlight=false;
+window.atmosMapAIResult=(id,answer,error)=>{
+ const pending=mapPending.get(id);if(!pending)return;
+ mapPending.delete(id);pending(error?{error}:{answer});
+};
+function colorForTemp(temp,lo,hi){
+ const v=Math.max(0,Math.min(1,(temp-lo)/(hi-lo||1)));
+ const r=Math.round(35+205*v),g=Math.round(140-66*v),b=Math.round(225-158*v);
+ return 'rgb('+r+','+g+','+b+')';
+}
+async function buildRegionalMap(latitude,longitude){
+ const lat=Number(latitude),lon=Number(longitude);
+ if(!Number.isFinite(lat)||!Number.isFinite(lon))throw Error('Bad coordinates');
+ const pts=[];
+ for(let row=0;row<5;row++)for(let col=0;col<5;col++){
+  pts.push({lat:lat+(2-row)*.12,lon:lon+(col-2)*.12,row,col});
+ }
+ const args=new URLSearchParams({
+  latitude:pts.map(p=>p.lat.toFixed(3)).join(','),
+  longitude:pts.map(p=>p.lon.toFixed(3)).join(','),
+  hourly:'temperature_2m,precipitation,cloud_cover',
+  timezone:'Asia/Jerusalem',forecast_days:'2'
+ });
+ const response=await fetch('https://api.open-meteo.com/v1/forecast?'+args,{cache:'no-store'});
+ if(!response.ok)throw Error('Regional grid unavailable');
+ const data=await response.json();
+ const entries=Array.isArray(data)?data:[data];
+ if(entries.length!==25)throw Error('Incomplete regional grid');
+ const timeList=entries[12]?.hourly?.time||[];
+ // Prefer the forecast nearest 18 hours ahead; timestamps are local.
+ const future=new Date(Date.now()+18*3600000);
+ const localHour=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).format(future).replace(' ','T')+':00';
+ let hourIndex=timeList.reduce((best,t,i)=>Math.abs(Date.parse(t)-Date.parse(localHour))<Math.abs(Date.parse(timeList[best])-Date.parse(localHour))?i:best,0);
+ if(!Number.isFinite(hourIndex)||hourIndex<0||hourIndex>=timeList.length)throw Error('No forecast time');
+ const grid=entries.map((item,i)=>({
+  ...pts[i],temp:Number(item.hourly?.temperature_2m?.[hourIndex]),
+  rain:Number(item.hourly?.precipitation?.[hourIndex]),
+  cloud:Number(item.hourly?.cloud_cover?.[hourIndex])
+ }));
+ if(grid.some(v=>!Number.isFinite(v.temp)))throw Error('Missing regional temperatures');
+ const low=Math.min(...grid.map(x=>x.temp)),high=Math.max(...grid.map(x=>x.temp));
+ const canvas=document.createElement('canvas');canvas.width=600;canvas.height=650;
+ const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas unavailable');
+ ctx.fillStyle='#10243a';ctx.fillRect(0,0,600,650);
+ ctx.fillStyle='white';ctx.font='bold 21px sans-serif';ctx.textAlign='center';
+ ctx.fillText('Regional temperature forecast',300,35);
+ ctx.font='17px sans-serif';ctx.fillText('Open-Meteo | '+timeList[hourIndex]+' Israel time',300,63);
+ const x0=65,y0=94,step=94;
+ for(const p of grid){
+  const x=x0+p.col*step,y=y0+p.row*step;
+  ctx.fillStyle=colorForTemp(p.temp,low,high);ctx.fillRect(x,y,step-2,step-2);
+  ctx.fillStyle='rgba(0,0,0,.82)';ctx.font='bold 20px sans-serif';
+  ctx.fillText(p.temp.toFixed(1)+'°',x+(step-2)/2,y+53);
+ }
+ ctx.strokeStyle='#ffffff';ctx.lineWidth=4;ctx.strokeRect(x0+2*step,y0+2*step,step-2,step-2);
+ ctx.fillStyle='#ffffff';ctx.font='bold 21px sans-serif';ctx.fillText('N ↑',535,112);
+ ctx.font='16px sans-serif';ctx.fillText('Center is the selected location',300,595);
+ ctx.fillText('Color scale: '+low.toFixed(1)+'° (cool) to '+high.toFixed(1)+'° (warm)',300,623);
+ return {dataUrl:canvas.toDataURL('image/png'),imageCanvas:canvas,grid,
+  validTime:timeList[hourIndex],center:grid[12],low,high};
+}
+async function runMapAnalysis(reload=false){
+ if(mapInFlight)return;
+ if(!lastMapContext)return;
+ const select=$('gptModel'),gpt=window.AtmosGPT;
+ const target=$('spatialMapAnalysis'),status=$('spatialMapStatus');
+ const {latitude,longitude,place,sequence}=lastMapContext;
+ if(!gpt?.connected()||!select?.value){
+  status.textContent='המפה מוכנה. כדי לקבל פירוש אוטומטי, התחבר ל-ChatGPT בלשונית AI.';
+  return;
+ }
+ mapInFlight=true;status.textContent='קורא את המפה ☁️';target.textContent='';
+ try{
+  const data=await buildRegionalMap(latitude,longitude);
+  if(sequence!==forecastSeq)return;
+  const holder=$('spatialMapImage');holder.replaceChildren();
+  const canvas=data.imageCanvas;canvas.style.width='100%';canvas.style.maxWidth='420px';canvas.style.height='auto';
+  canvas.setAttribute('aria-label','מפת טמפרטורות אזורית חזויה סביב '+place);
+  holder.append(canvas);
+  const prompt='Analyze this ACTUAL rendered geographic temperature map of 25 forecast grid points near '+place+
+   '. Valid time: '+data.validTime+' Israel time. Center point: '+data.center.temp.toFixed(1)+' Celsius. Minimum nearby: '+data.low.toFixed(1)+', maximum nearby: '+data.high.toFixed(1)+
+   '. Spatial grid is around the selected location, NOT a screenshot of Weather2day maps. Distance per cell ~13 km north/south and ~11 km east/west. '+
+   'Respond in Hebrew, 2-4 short sentences: qualitative north/south/east/west thermal gradients and what they imply about local confidence/uncertainty. Never invent weather conditions, pressure systems, snowfall, absolute forecast correction, or Weather2day findings; do not claim to have read their site. Explicitly say the displayed daily and current forecast numbers are unchanged, and that maps only add geographical context. No Markdown.';
+  const result=await new Promise(resolve=>{
+   const id='map'+(++mapRequestNum);
+   mapPending.set(id,resolve);
+   gpt.analyzeWeatherMap(prompt,data.dataUrl,select.value,id);
+  });
+  if(sequence!==forecastSeq)return;
+  if(result.error){status.textContent='התחזית מוכנה. ניתוח התמונה אינו זמין כרגע.';return;}
+  target.textContent=result.answer;
+  status.textContent='ניתוח מפה · '+data.validTime;
+ }catch(e){
+  status.textContent='לא הצלחתי לעדכן את המפה האזורית כרגע.';
+ }finally{mapInFlight=false;}
+}
 async function load(){
  const seq=++forecastSeq;
  $('error').classList.add('hide');$('status').textContent='מעדכן…';
@@ -176,6 +273,8 @@ async function load(){
   renderHourlyTemperature(current.length?current:(primary?[{hourly:primary.hourly}]:[]));
   $('status').textContent='עודכן '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
   renderComparison();
+  lastMapContext={latitude:Number(latitude),longitude:Number(longitude),place:$('place').selectedOptions[0].textContent,sequence:seq};
+  void runMapAnalysis();
   void findRecentIMSTemperature(Number(latitude),Number(longitude),seq);
  }catch(e){
   if(seq!==forecastSeq)return;
@@ -184,6 +283,7 @@ async function load(){
  }
 }
 function renderComparison(){$('comparison').innerHTML=current.length?current[0].days.map((d,i)=>'<div class="row"><strong>'+new Date(d.date+'T12:00').toLocaleDateString('he-IL',{weekday:'short',day:'numeric'})+'</strong>'+current.map(m=>'<span>'+fmt(m.days[i]?.[metric])+'</span>').join('')+'</div>').join(''):'אין נתונים';}
+$('spatialMapRetry').onclick=()=>void runMapAnalysis(true);
 $('place').onchange=load;$('refresh').onclick=load;document.querySelectorAll('.metric').forEach(b=>b.onclick=()=>{metric=b.dataset.metric;document.querySelectorAll('.metric').forEach(x=>x.classList.toggle('active',x===b));renderComparison()});
 $('forecastTab').onclick=()=>switchTab('forecast');$('historyTab').onclick=()=>switchTab('history');$('chatTab').onclick=()=>switchTab('chat');function switchTab(tab){for(const id of ['forecast','history','chat']){$(id).classList.toggle('hide',id!==tab);$(id+'Tab').classList.toggle('active',id===tab)}if(tab==='history'){updateIMSStatus();if(!loadedStations&&window.AtmosIMS&&window.AtmosIMS.isConfigured())getIMSStations();}}
 
