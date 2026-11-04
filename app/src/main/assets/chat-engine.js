@@ -75,10 +75,10 @@ lines.push("הפרש בין הראשון לשני: "+(delta>0?"+":"")+delta+" "+
 lines.push("מקור: מדידות IMS אוטומטיות. ממוצעים מחושבים מדגימות זמינות, לא מנורמות אקלימיות מבוקרות. נתונים חסרים עשויים להשפיע על התוצאה.");
 return header+"\n\n"+lines.join("\n\n");
 }
-window.AtmosChat={send:async function(raw){if(working)return;let q=String(raw||"").trim();if(!q)return;say("user",q);$("chatInput").value="";setBusy(true);let reply=say("assistant","בודק תחנה ומוריד מדידות…");try{reply.textContent=await process(q)}catch(e){reply.textContent="לא הצלחתי להשלים את השאילתה: "+e.message+"\nנסה תקופה קצרה יותר או בדוק את החיבור לשמ״ט."}finally{setBusy(false)}},init:function(){
+window.AtmosChat={send:async function(raw){if(working)return;let q=String(raw||"").trim();if(!q)return;say("user",q);$("chatInput").value="";setBusy(true);let reply=say("assistant","רגע, אוסף טיפות מידע ☔");try{reply.textContent=await process(q)}catch(e){reply.textContent="לא הצלחתי להשלים את השאילתה: "+e.message+"\nנסה תקופה קצרה יותר או בדוק את החיבור לשמ״ט."}finally{setBusy(false)}},init:function(){
 $("chatSend").onclick=() => window.AtmosChat.send($("chatInput").value);
 $("chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();window.AtmosChat.send($("chatInput").value)}};
 document.querySelectorAll("[data-chat-example]").forEach(b=>b.onclick=()=>window.AtmosChat.send(b.dataset.chatExample));
-say("assistant","שלום! אני עוזר השאילתות של אטמוס. אפשר לשאול אותי על גשם, טמפרטורות, רוח ולחות בתחנות השמ״ט. אני מפרש את הבקשה במכשיר ומחזיר תשובה מתוך מדידות אמיתיות. עדיין לא מדובר במודל שפה חופשי.");
+say("assistant","היי! ☁️ מה מסקרן אותך במזג האוויר?");
 }};
 })();
