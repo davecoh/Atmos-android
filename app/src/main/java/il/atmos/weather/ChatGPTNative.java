@@ -12,6 +12,14 @@ import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import org.json.JSONArray;
+import okhttp3.OkHttpClient;
+import okhttp3.Dns;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.MediaType;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import java.net.UnknownHostException;
 import org.json.JSONObject;
 import java.io.*;
 import java.math.BigInteger;
@@ -208,7 +216,74 @@ public final class ChatGPTNative {
         while((k=in.read(buf))>=0){b.write(buf,0,k);if(b.size()>LIMIT)throw new Exception("Response too large");}
         return b.toString("UTF-8");
     }
+    /**
+     * Keep the requested HTTPS hostname intact (TLS SNI and certificate verification).
+     * If Android system DNS fails for an OpenAI hostname, retrieve its DNS A records
+     * over HTTPS from a public DNS provider. Only IP addresses, never credentials,
+     * are returned by this fallback.
+     */
+    private static final class OpenAIDns implements Dns {
+        private final Dns system=Dns.SYSTEM;
+        @Override public List<InetAddress> lookup(String host) throws UnknownHostException {
+            try { return system.lookup(host); }
+            catch (UnknownHostException initial) {
+                if(!"auth.openai.com".equals(host) && !"api.openai.com".equals(host))throw initial;
+                Exception reason=initial;
+                for(String provider:new String[]{"https://dns.google/resolve?name=","https://cloudflare-dns.com/dns-query?name="}) {
+                    HttpURLConnection connection=null;
+                    try {
+                        URL u=new URL(provider+host+"&type=A");
+                        connection=(HttpURLConnection)u.openConnection();
+                        connection.setConnectTimeout(7000);
+                        connection.setReadTimeout(7000);
+                        connection.setRequestProperty("Accept","application/dns-json");
+                        if(connection.getResponseCode()!=200)continue;
+                        byte[] raw=new byte[32768];
+                        int n=connection.getInputStream().read(raw);
+                        if(n<=0)continue;
+                        JSONObject info=new JSONObject(new String(raw,0,n,StandardCharsets.UTF_8));
+                        if(info.optInt("Status",-1)!=0)continue;
+                        JSONArray answers=info.optJSONArray("Answer");
+                        if(answers==null)continue;
+                        List<InetAddress> addresses=new ArrayList<>();
+                        for(int i=0;i<answers.length();i++){
+                            JSONObject a=answers.optJSONObject(i);
+                            if(a==null || a.optInt("type")!=1)continue;
+                            String ip=a.optString("data");
+                            if(!ip.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"))continue;
+                            String[] octets=ip.split("\\.");
+                            byte[] bytes=new byte[4];boolean good=true;
+                            for(int j=0;j<4;j++){int v=Integer.parseInt(octets[j]);if(v>255){good=false;break;}bytes[j]=(byte)v;}
+                            if(good)addresses.add(InetAddress.getByAddress(host,bytes));
+                        }
+                        if(!addresses.isEmpty())return addresses;
+                    }catch(Exception e){reason=e;}
+                    finally{if(connection!=null)connection.disconnect();}
+                }
+                throw new UnknownHostException("DNS resolution failed for "+host+" (Android DNS and HTTPS DNS fallback). "+reason.getClass().getSimpleName());
+            }
+        }
+    }
+    private final OkHttpClient http=new OkHttpClient.Builder()
+        .dns(new OpenAIDns())
+        .connectTimeout(20,TimeUnit.SECONDS)
+        .readTimeout(120,TimeUnit.SECONDS)
+        .build();
     private JSONObject request(String uri,String method,String contentType,String data,String bearer)throws Exception{
+        Request.Builder builder=new Request.Builder().url(uri).header("Accept","application/json");
+        if(bearer!=null)builder.header("Authorization","Bearer "+bearer);
+        if(data!=null){
+            builder.post(RequestBody.create(data,MediaType.parse(contentType)));
+        }else builder.get();
+        try(Response response=http.newCall(builder.build()).execute()){
+            ResponseBody body=response.body();
+            String raw=body==null?"":body.string();
+            if(raw.length()>LIMIT)throw new Exception("Response too large");
+            if(!response.isSuccessful())throw new Exception("OpenAI HTTP "+response.code()+": "+raw.substring(0,Math.min(raw.length(),300)));
+            return new JSONObject(raw);
+        }
+    }
+
         HttpURLConnection c=(HttpURLConnection)new URL(uri).openConnection();try{
             c.setConnectTimeout(15000);c.setReadTimeout(60000);c.setRequestMethod(method);
             c.setRequestProperty("Accept","application/json");if(bearer!=null)c.setRequestProperty("Authorization","Bearer "+bearer);
@@ -244,15 +319,21 @@ public final class ChatGPTNative {
         }catch(Exception e){call("atmosAIResult",id,"",e.getMessage());}});
     }
     private String streamResponse(JSONObject req,String bearer)throws Exception{
-        HttpURLConnection c=(HttpURLConnection)new URL(RESOURCE+"/responses").openConnection();try{
-            c.setRequestMethod("POST");c.setConnectTimeout(18000);c.setReadTimeout(120000);
-            c.setRequestProperty("Authorization","Bearer "+bearer);
-            c.setRequestProperty("Content-Type","application/json");c.setRequestProperty("Accept","text/event-stream");
-            c.setDoOutput(true);c.getOutputStream().write(req.toString().getBytes(StandardCharsets.UTF_8));
-            int status=c.getResponseCode();if(status!=200)throw new Exception("Responses HTTP "+status+": "+read(c.getErrorStream()));
-            BufferedReader reader=new BufferedReader(new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8));
+        Request request=new Request.Builder().url(RESOURCE+"/responses")
+            .header("Authorization","Bearer "+bearer)
+            .header("Accept","text/event-stream")
+            .post(RequestBody.create(req.toString(),MediaType.parse("application/json")))
+            .build();
+        try(Response response=http.newCall(request).execute()){
+            ResponseBody body=response.body();
+            if(!response.isSuccessful())throw new Exception("Responses HTTP "+response.code()+": "+(body==null?"":body.string()));
+            if(body==null)throw new Exception("Empty Responses body");
+            BufferedReader reader=new BufferedReader(new InputStreamReader(body.byteStream(),StandardCharsets.UTF_8));
             String line;StringBuilder result=new StringBuilder();boolean complete=false;
-            while((line=reader.readLine())!=null){if(!line.startsWith("data: "))continue;String chunk=line.substring(6);if("[DONE]".equals(chunk))break;
+            while((line=reader.readLine())!=null){
+                if(!line.startsWith("data: "))continue;
+                String chunk=line.substring(6);
+                if("[DONE]".equals(chunk))break;
                 JSONObject ev;try{ev=new JSONObject(chunk);}catch(Exception ignored){continue;}
                 String type=ev.optString("type");
                 if("response.output_text.delta".equals(type))result.append(ev.optString("delta"));
@@ -261,7 +342,7 @@ public final class ChatGPTNative {
             }
             if(!complete)throw new Exception("Response stream ended before completion");
             return result.toString();
-        }finally{c.disconnect();}
+        }
     }
     @JavascriptInterface public void logout(){io.execute(()->{
         // Local sign-out; remote refresh-token revocation requires confirmation.
