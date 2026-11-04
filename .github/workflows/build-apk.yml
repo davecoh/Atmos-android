@@ -23,7 +23,7 @@ jobs:
           python3 - <<'PY'
           import pathlib, re, subprocess, tempfile
           src = pathlib.Path('app/src/main/assets/index.html').read_text()
-          scripts = re.findall(r'<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>', src)
+          scripts = re.findall(r'<script[^>]*>(.*?)</script>', src, re.S)
           assert scripts, 'No inline scripts found'
           for script in scripts:
               with tempfile.NamedTemporaryFile(suffix='.js', mode='w', encoding='utf-8') as f:
