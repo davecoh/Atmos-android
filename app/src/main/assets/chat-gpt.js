@@ -257,14 +257,30 @@ function forecastTool(){
  if(!data.length)throw Error('תחזית עדיין לא נטענה');
  return {kind:'model_forecast',location:$('place').selectedOptions[0]?.textContent,models:data.map(m=>({name:m.id,days:m.days})),recentCommunityPosts:(window.latestAtmosNews?.posts||[]).slice(0,6).map(x=>({source:x.source,time:x.time,excerpt:x.text,url:x.url})),note:'Numeric forecasts come ONLY from Open-Meteo models. Community posts are dated qualitative context, NOT location-specific measurements. Weather2day maps are linked for manual inspection; their raster values are NOT analyzed by the app. Do not assert map-based corrections.'};
 }
-async function send(raw){
- let q=String(raw||'').trim();if(!q||busy)return;
+async function send(raw,options={}){
+ let q=String(raw||'').trim();
+ const spoken=options?.spoken===true;
+ if(!q)return;
+ if(busy){
+   if(spoken)window.AtmosVoiceUI?.onAnswer('אטמוס עדיין עונה לשאלה הקודמת. אפשר לנסות שוב עוד רגע.',true);
+   return;
+ }
  messages('user',q);$('chatInput').value='';
  const fullQuestion=contextualQuestion(q);
  if(q.length>35&&!/^(ו?ב|ומה|ולגבי)/.test(q))lastDetailedQuestion=q;
  history.push({role:'user',text:q});history=history.slice(-10);
- if(!getNative()?.connected()){messages('assistant','בוא נתחבר ל-ChatGPT, ואז נדבר על מזג האוויר ☀️');return;}
- if(!model()){messages('assistant','חסר לי מודל לשיחה. בוא ננסה להתחבר שוב 🙂');return;}
+ if(!getNative()?.connected()){
+ const answer='בוא נתחבר ל-ChatGPT, ואז נדבר על מזג האוויר ☀️';
+ messages('assistant',answer);
+ if(spoken)window.AtmosVoiceUI?.onAnswer(answer,true);
+ return;
+}
+ if(!model()){
+ const answer='חסר לי מודל לשיחה. בוא ננסה להתחבר שוב 🙂';
+ messages('assistant',answer);
+ if(spoken)window.AtmosVoiceUI?.onAnswer(answer,true);
+ return;
+}
  busy=true;$('chatSend').disabled=true;
  const bubble=messages('assistant','רגע, מציץ בעננים ☁️');bubble.classList.add('loading');
  try{
@@ -282,6 +298,7 @@ async function send(raw){
     const answer='תחנות שמ״ט זמינות ('+stations.length+' בסך הכול):\\n'+names.join('\\n')+
       (stations.length>names.length?'\\n… ותחנות נוספות.':'');
     bubble.textContent=answer;history.push({role:'assistant',text:answer});history=history.slice(-10);
+    if(spoken)window.AtmosVoiceUI?.onAnswer(answer,true);
     return;
   }
   const list=stations.slice(0,180).map(s=>s.id+':'+s.name+(s.location?' @'+s.location.latitude+','+s.location.longitude:'')).join('; ');
@@ -323,6 +340,7 @@ async function send(raw){
   '\nWrite a SHORT, warm, user-facing answer in natural Hebrew. Never expose internal error messages, API statuses, codes, JSON keys, debugging or data-loading details. Do not mention attempted_api_requests. Never invent measured values, missing observations or stations. When all results have status unavailable, say simply that reliable measurements for the requested years could not be found, and offer to try other years or nearby stations. When nearby_fallback or nearest_with_available_data was used, clearly state which station was measured (not the requested town), and mention distance when available. For partial observations, explicitly call the sum partial, NOT a monthly total. Distinguish observations from forecasts. Keep concise and friendly.';
   const answer=await callGPT(responsePrompt);
   bubble.textContent=answer;
+  if(spoken)window.AtmosVoiceUI?.onAnswer(answer,true);
   history.push({role:'assistant',text:answer});
   history=history.slice(-10);
  }catch(e){
@@ -336,6 +354,7 @@ async function send(raw){
    else if(problem.includes('STATION_NOT_FOUND')||problem.includes('לא נמצאו קואורדינטות'))
      message='לא הצלחתי לזהות את המקום. אפשר לנסות שם יישוב אחר?';
    bubble.textContent=message;
+   if(spoken)window.AtmosVoiceUI?.onAnswer(message,true);
    history.push({role:'assistant',text:message});history=history.slice(-10);
 }
  finally{bubble.classList.remove('loading');busy=false;$('chatSend').disabled=false;}
