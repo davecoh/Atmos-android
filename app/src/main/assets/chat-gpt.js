@@ -24,7 +24,7 @@ window.atmosModelsResult=(id,raw,error)=>{
   $('gptModel').replaceChildren();
   for(const m of models){const option=document.createElement('option');option.value=m.slug||m.id;option.textContent=m.display_name||m.name||option.value;$('gptModel').appendChild(option);}
   if(!models.length)status('אין מודלים זמינים בחשבון עבור מסלול ההתחברות.');
-  else status('מחובר למנוי ChatGPT. ניתן לשאול שאלות.');
+  else {status('מחובר למנוי ChatGPT. ניתן לשאול שאלות.');if(typeof window.AtmosRunMapAnalysis==='function')window.AtmosRunMapAnalysis();}
  }catch(e){status('תגובת רשימת המודלים אינה תקינה: '+e.message);}
 };
 window.atmosLoginResult=(type,message)=>{
