@@ -30,7 +30,7 @@ let forecastSeq=0;
 let latestNews={checked_at:null,posts:[],sources:[]};
 window.atmosNewsResult=(id,payload)=>{
  if(id!=='forecast-news')return;
- latestNews=payload||{posts:[],sources:[]};
+ latestNews=payload||{posts:[],sources:[]};window.latestAtmosNews=latestNews;
  const items=(latestNews.posts||[]).sort((a,b)=>b.time.localeCompare(a.time)).slice(0,6);
  $('newsStatus').textContent=items.length?'עדכונים שפורסמו ב־72 השעות האחרונות':'אין כרגע פוסטים חדשים שניתן לאמת. אפשר לצפות ישירות במקורות.';
  $('weatherNews').replaceChildren();
