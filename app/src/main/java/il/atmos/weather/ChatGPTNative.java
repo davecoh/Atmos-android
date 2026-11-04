@@ -335,6 +335,28 @@ public final class ChatGPTNative {
             String answer=streamResponse(req,accessToken());call("atmosAIResult",id,answer,"");
         }catch(Exception e){call("atmosAIResult",id,"",e.getMessage());}});
     }
+    @JavascriptInterface public void analyzeWeatherMap(String prompt,String pngDataUrl,String model,String id){
+        if(prompt==null||prompt.length()>6500||pngDataUrl==null||pngDataUrl.length()>750000
+          ||!pngDataUrl.startsWith("data:image/png;base64,")
+          ||model==null||!model.matches("[a-zA-Z0-9._-]{1,100}")
+          ||id==null||!id.matches("[a-zA-Z0-9_-]{1,40}"))return;
+        io.execute(()->{
+            try{
+                JSONObject req=new JSONObject();
+                req.put("model",model);req.put("store",false);req.put("stream",true);
+                JSONArray content=new JSONArray();
+                content.put(new JSONObject().put("type","input_text").put("text",prompt));
+                content.put(new JSONObject().put("type","input_image")
+                    .put("image_url",pngDataUrl).put("detail","high"));
+                req.put("input",new JSONArray().put(
+                    new JSONObject().put("role","user").put("content",content)));
+                String result=streamResponse(req,accessToken());
+                call("atmosAIResult",id,result,"");
+            }catch(Exception error){
+                call("atmosAIResult",id,"",error.getMessage());
+            }
+        });
+    }
     private String streamResponse(JSONObject req,String bearer)throws Exception{
         Request request=new Request.Builder().url(RESOURCE+"/responses")
             .header("Authorization","Bearer "+bearer)
