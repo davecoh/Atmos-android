@@ -133,7 +133,7 @@ public class IMSNative {
                 if(status==204){
                     // 204 is a successful HTTP response with no body, not a parse failure.
                     // Tell the UI which endpoint returned an empty response.
-                    notifyJs(id,"{\\"data\\":[],\\"_httpStatus\\":204}",null);
+                    notifyJs(id,"{\"data\":[],\"_httpStatus\":204}",null);
                     return;
                 }
                 InputStream input=status>=400?conn.getErrorStream():conn.getInputStream();
