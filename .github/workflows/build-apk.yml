@@ -20,6 +20,7 @@ jobs:
       - name: Validate JavaScript
         run: |
           node --check app/src/main/assets/chat-engine.js
+          node --check app/src/main/assets/chat-gpt.js
           python3 - <<'PY'
           import pathlib, re, subprocess, tempfile
           src = pathlib.Path('app/src/main/assets/index.html').read_text()
