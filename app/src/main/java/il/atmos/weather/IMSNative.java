@@ -115,7 +115,7 @@ public class IMSNative {
     @JavascriptInterface public void request(String path,String id) {
         if(id==null||!id.matches("[a-zA-Z0-9_-]{1,40}"))return;
         // Prevent arbitrary URLs or headers supplied by web content.
-        if(path==null||!(path.equals("")||path.matches("/[0-9]{1,5}")||
+        if(path==null||!(path.equals("")||path.matches("/[0-9]{1,5}")||path.matches("/[0-9]{1,5}/data/earliest")||
            path.matches("/[0-9]{1,5}/data\\?from=[0-9]{4}/[0-9]{2}/[0-9]{2}&to=[0-9]{4}/[0-9]{2}/[0-9]{2}"))) {
             notifyJs(id,null,"כתובת בקשה לא חוקית");return;
         }
