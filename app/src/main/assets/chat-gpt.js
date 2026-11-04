@@ -71,6 +71,7 @@ async function requireIMSStations(){
  if(!window.AtmosIMS.isConfigured())throw Error('חסר טוקן שמ״ט בגרסת אטמוס GPT. פתח את לשונית היסטוריה, לחץ על הזנת טוקן חד־פעמית, והזן את הטוקן פעם אחת.');
  let raw;
  try{raw=await window.imsRequest('');}catch(e){throw Error('קריאת רשימת התחנות מהשמ״ט נכשלה: '+e.message+'. בדוק את טעינת התחנות בלשונית היסטוריה.');}
+ if(raw?._httpStatus===204)throw Error('שרת השמ״ט החזיר HTTP 204 (ללא תוכן) לבקשת רשימת התחנות. זו אינה הוכחה שאין מדידות לשנת 1992. בדוק את טוקן השמ״ט ונסה טעינת תחנות בלשונית היסטוריה.');
  let stations=stationList(raw);
  if(!stations.length)throw Error('השמ״ט לא החזיר תחנות מזוהות. בדוק את הטוקן או נסה שוב.');
  return stations;
@@ -103,8 +104,11 @@ async function historyTool(plan,stations){
    let rows=[];
    for(const [a,b] of chunks(from,to)){
     let path='/'+info.id+'/data?from='+a.replaceAll('-','/')+'&to='+b.replaceAll('-','/');
-    rows.push(...window.imsList(await window.imsRequest(path)));
+    const batch=await window.imsRequest(path);
+    if(batch?._httpStatus===204)continue;
+    rows.push(...window.imsList(batch));
    }
+   if(!rows.length)throw Error('לא הוחזרו מדידות לתחנה '+info.name+' בתקופה '+from+' עד '+to+' (HTTP 204 / תגובה ריקה). ייתכן שטווח התאריכים קדם לתחילת פעילות התחנה או שהארכיון אינו זמין דרך ממשק המדידות האוטומטיות. לא ניתן להסיק שכמות הגשם הייתה אפס.');
    const s=window.imsStatistics(rows,meta);
    const key=({rain:'Rain',temp:'TD',max:'TDmax',min:'TDmin',wind:'WS',gust:'WSmax',humid:'RH'})[plan.metric];
    output.push({station:info.name,station_id:info.id,period:{from,to},metric:plan.metric,value:s[plan.metric],matching_measurements:s.counts[key]||0,records:s.samples,invalid:s.rejected,units:({rain:'mm',temp:'C',max:'C',min:'C',wind:'m/s',gust:'m/s',humid:'%'})[plan.metric]});
