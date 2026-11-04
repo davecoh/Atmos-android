@@ -255,7 +255,7 @@ function forecastTool(){
  if(!Array.isArray(window.current)&&typeof current==='undefined')throw Error('יש לפתוח קודם את לשונית תחזית כדי לטעון מודלים');
  const data=typeof current!=='undefined'?current:window.current;
  if(!data.length)throw Error('תחזית עדיין לא נטענה');
- return {kind:'model_forecast',location:$('place').selectedOptions[0]?.textContent,models:data.map(m=>({name:m.id,days:m.days})),note:'Numeric forecast model data, not weather-map visual interpretation or calibrated precipitation probabilities.'};
+ return {kind:'model_forecast',location:$('place').selectedOptions[0]?.textContent,models:data.map(m=>({name:m.id,days:m.days})),recentCommunityPosts:(window.latestAtmosNews?.posts||[]).slice(0,6).map(x=>({source:x.source,time:x.time,excerpt:x.text,url:x.url})),note:'Numeric forecasts come ONLY from Open-Meteo models. Community posts are dated qualitative context, NOT location-specific measurements. Weather2day maps are linked for manual inspection; their raster values are NOT analyzed by the app. Do not assert map-based corrections.'};
 }
 async function send(raw){
  let q=String(raw||'').trim();if(!q||busy)return;
@@ -294,7 +294,7 @@ async function send(raw){
    '. Reply ONLY with a JSON object: action historical, forecast or general. For questions requesting historical measurements, select historical. Do not ask the user to provide stations or raw data; the application fetches them.'+
    ' For a requested town with no exact weather station, set match_strategy=nearest, place=the exact town name, stations=[]; the app geocodes it and calculates the closest station with the requested metric. Do not invent station coordinates.'+
    ' For historical provide metric rain,temp,max,min,wind,gust,humid, stations array of 1 or 2 numeric IDs FROM THE LIST, periods array of 1 or 2 objects {from,to} ISO dates (each at most 186 days). Preserve years including 1992.'+
-   ' For forecast use action forecast. For general explanation or ambiguous station use action general with answer. Do not invent weather measurements or station IDs.';
+   ' For forecast use action forecast. For general explanation or ambiguous station use action general with answer. Do not invent weather measurements or station IDs. Recent community posts are only contextual and must be dated and attributed.';
   let plan;
   try{plan=jsonText(await callGPT(planning));}catch(e){throw Error('לא ניתן לפענח תוכנית שאילתות מהמודל: '+e.message)}
   if(historical&&knownPlace&&plan.action==='historical'){
