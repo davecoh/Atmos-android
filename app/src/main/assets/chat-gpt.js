@@ -267,11 +267,59 @@ async function analogueTool(plan){
  result.place_name=position.label;
  return result;
 }
-function forecastTool(){
- if(!Array.isArray(window.current)&&typeof current==='undefined')throw Error('יש לפתוח קודם את לשונית תחזית כדי לטעון מודלים');
- const data=typeof current!=='undefined'?current:window.current;
- if(!data.length)throw Error('תחזית עדיין לא נטענה');
- return {kind:'model_forecast',location:$('place').selectedOptions[0]?.textContent,models:data.map(m=>({name:m.id,days:m.days})),recentCommunityPosts:(window.latestAtmosNews?.posts||[]).slice(0,6).map(x=>({source:x.source,time:x.time,excerpt:x.text,url:x.url})),note:'Numeric forecasts come ONLY from Open-Meteo models. Community posts are dated qualitative context, NOT location-specific measurements. Weather2day maps are linked for manual inspection; their raster values are NOT analyzed by the app. Do not assert map-based corrections.'};
+async function forecastTool(plan={}){
+ const place=String(plan.place||plan.locationName||'').trim();
+ let geo;
+ if(place)geo=await geocode(place);
+ else{
+  const [latitude,longitude]=$('place').value.split(',').map(Number);
+  geo={latitude,longitude,label:$('place').selectedOptions[0]?.textContent||'selected location'};
+ }
+ const today=isoLocal(new Date());
+ const target=String(plan.date||today);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(target)||target<today)throw Error('FORECAST_DATE_UNAVAILABLE');
+ const params=new URLSearchParams({
+  latitude:geo.latitude,longitude:geo.longitude,
+  timezone:'Asia/Jerusalem',forecast_days:'7',
+  hourly:'pressure_msl,temperature_850hPa,geopotential_height_500hPa,precipitation_probability',
+  daily:'precipitation_sum,precipitation_probability_max,temperature_2m_max,temperature_2m_min'
+ });
+ const out=await Promise.allSettled([
+  fetch('https://api.open-meteo.com/v1/forecast?'+params,{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('model unavailable');return r.json()}),
+  ...[["ECMWF","ecmwf"],["ICON","dwd-icon"],["GFS","gfs"]].map(async ([name,path])=>{
+   const p=new URLSearchParams({latitude:geo.latitude,longitude:geo.longitude,
+    timezone:'Asia/Jerusalem',forecast_days:'7',
+    daily:'precipitation_sum,temperature_2m_max,temperature_2m_min'});
+   const r=await fetch('https://api.open-meteo.com/v1/'+path+'?'+p,{cache:'no-store'});
+   if(!r.ok)throw Error('model unavailable');
+   return {name,data:await r.json()};
+  })
+ ]);
+ const best=out[0].status==='fulfilled'?out[0].value:null;
+ const dailyIndex=(best?.daily?.time||[]).indexOf(target);
+ if(!best||dailyIndex<0)throw Error('FORECAST_DATE_UNAVAILABLE');
+ const value=(a,i)=>typeof a?.[i]==='number'?a[i]:null;
+ const regionalModels=out.slice(1).filter(x=>x.status==='fulfilled').map(x=>{
+  const {name,data}=x.value,i=(data.daily?.time||[]).indexOf(target);
+  return {name,valid_date:target,precipitation_mm:i<0?null:value(data.daily.precipitation_sum,i),
+   high_c:i<0?null:value(data.daily.temperature_2m_max,i),
+   low_c:i<0?null:value(data.daily.temperature_2m_min,i)};
+ });
+ const hour=(best.hourly?.time||[]).findIndex(t=>t.startsWith(target+'T12:'));
+ const fields=hour<0?null:{
+  pressure_msl_hpa:value(best.hourly.pressure_msl,hour),
+  temperature_850hPa_c:value(best.hourly.temperature_850hPa,hour),
+  geopotential_height_500hPa_m:value(best.hourly.geopotential_height_500hPa,hour)
+ };
+ return {kind:'forecast_research',place:geo.label,requested_date:target,
+  best_match:{source:'Open-Meteo best match',precipitation_mm:value(best.daily.precipitation_sum,dailyIndex),
+   precipitation_probability_max_percent:value(best.daily.precipitation_probability_max,dailyIndex),
+   low_c:value(best.daily.temperature_2m_min,dailyIndex),
+   high_c:value(best.daily.temperature_2m_max,dailyIndex),
+   atmospheric_fields_at_12_local:fields},
+  latest_model_forecasts:regionalModels,
+  recentCommunityPosts:(window.latestAtmosNews?.posts||[]).slice(0,5).map(x=>({source:x.source,time:x.time,excerpt:x.text,url:x.url})),
+  limits:'This is a comparison of numerical model output, not a literal visual reading of latest Weather2day chart imagery. Precipitation_probability_max_percent = maximum hourly probability within the day, NOT calibrated daily rain probability. Do not invent a daily percentage or take average percentages from three models. State model run issue times only if provided.'};
 }
 async function send(raw,options={}){
  let q=String(raw||'').trim();
@@ -301,7 +349,8 @@ async function send(raw,options={}){
  const bubble=messages('assistant','רגע, מציץ בעננים ☁️');bubble.classList.add('loading');
  try{
   const now=isoLocal(new Date());
-  const historical=isHistoricalQuestion(fullQuestion);
+  const historical=isHistoricalQuestion(fullQuestion)&&
+    !/דומ|מפה|מפות|מודל|תחזית|סיכוי|הסתברות|chance|probabilit|analog|similar|forecast|weather map|pattern/i.test(fullQuestion);
   let stations=[];
   if(historical){
     bubble.textContent='מוציא מטרייה לנתונים ☔';
@@ -342,7 +391,7 @@ async function send(raw,options={}){
   }
   let result;
   if(plan.action==='historical'){bubble.textContent='מחפש טיפות של מידע 💧';result=await historyTool(plan,stations);}
-  else if(plan.action==='forecast'){bubble.textContent='מציץ אל העתיד 🔮';result=forecastTool();}
+  else if(plan.action==='forecast'){bubble.textContent='מציץ אל העתיד 🔮';result=await forecastTool(plan);}
   else if(plan.action==='analogues'){
     bubble.textContent='משווה למערכות מזג אוויר מהעבר 🗺️';
     result=await analogueTool(plan);
