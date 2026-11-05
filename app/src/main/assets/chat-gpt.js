@@ -251,6 +251,22 @@ async function historyTool(plan,stations){
  return {kind:'IMS_observations',results:output,attempted_api_requests:attempts,
  notes:'These are automatic weather-station observations, not necessarily controlled official climatology. If value=null and partial_value exists, it is NOT a full-period total. A nearby station is not a measurement at the requested town. If status=unavailable, say that the requested data could not be found; NEVER invent a number or switch years without user consent.'};
 }
+async function analogueTool(plan){
+ if(!window.AtmosAnalogues?.search)throw Error('ANALOGUE_UNAVAILABLE');
+ const place=String(plan.place||plan.locationName||'').trim();
+ let position;
+ if(place)position=await geocode(place);
+ else {
+  const value=$('place').value.split(',').map(Number);
+  position={latitude:value[0],longitude:value[1],label:$('place').selectedOptions[0]?.textContent||'selected location'};
+ }
+ const result=await window.AtmosAnalogues.search({
+  latitude:position.latitude,longitude:position.longitude,date:plan.date,
+  years:3
+ });
+ result.place_name=position.label;
+ return result;
+}
 function forecastTool(){
  if(!Array.isArray(window.current)&&typeof current==='undefined')throw Error('יש לפתוח קודם את לשונית תחזית כדי לטעון מודלים');
  const data=typeof current!=='undefined'?current:window.current;
@@ -308,7 +324,12 @@ async function send(raw,options={}){
    '\\nPrior dialogue: '+recent+'\\nIMS station IDs and names: '+list+
    '\\nHistorical observations required: '+historical+
    '. Place without exact station match in the user question: '+(knownPlace||'none')+
-   '. Reply ONLY with a JSON object: action historical, forecast or general. For questions requesting historical measurements, select historical. Do not ask the user to provide stations or raw data; the application fetches them.'+
+   '. Reply ONLY with a JSON object: action historical, forecast, analogues or general.'+
+   ' This is an OPEN-ENDED weather assistant, NOT limited to IMS. Historical observations at specific past dates -> historical (IMS).'+
+   ' Future rain or temperature trends -> forecast. Historical *similar weather patterns* / analog weather maps / similar pressure setups in past seasons -> analogues.'+
+   ' For analogues include place as a city or town, date as future ISO YYYY-MM-DD within the next 7 days. For forecast include place and date as well.'+
+   ' Do not route forecast questions to IMS simply because they mention rainfall. General questions should work without IMS.'+
+   ' For historical measurements select historical. Do not ask the user to provide stations or raw data; the application fetches them.'+
    ' For a requested town with no exact weather station, set match_strategy=nearest, place=the exact town name, stations=[]; the app geocodes it and calculates the closest station with the requested metric. Do not invent station coordinates.'+
    ' For historical provide metric rain,temp,max,min,wind,gust,humid, stations array of 1 or 2 numeric IDs FROM THE LIST, periods array of 1 or 2 objects {from,to} ISO dates (each at most 186 days). Preserve years including 1992.'+
    ' For forecast use action forecast. For general explanation or ambiguous station use action general with answer. Do not invent weather measurements or station IDs. Recent community posts are only contextual and must be dated and attributed.';
@@ -322,6 +343,10 @@ async function send(raw,options={}){
   let result;
   if(plan.action==='historical'){bubble.textContent='מחפש טיפות של מידע 💧';result=await historyTool(plan,stations);}
   else if(plan.action==='forecast'){bubble.textContent='מציץ אל העתיד 🔮';result=forecastTool();}
+  else if(plan.action==='analogues'){
+    bubble.textContent='משווה למערכות מזג אוויר מהעבר 🗺️';
+    result=await analogueTool(plan);
+  }
   else if(plan.action==='general'){
     if(historical&&stations.length&&!isStationDirectoryQuestion(fullQuestion)){
       bubble.textContent='עוד רגע, מסדר את העננים ☁️';
@@ -337,7 +362,13 @@ async function send(raw,options={}){
   bubble.textContent='מחבר את הנקודות ✨';
   const responsePrompt='You are Atmos, a careful Hebrew weather assistant. Respond in Hebrew. User question: '+fullQuestion+
   '\nEarlier dialog:\n'+recent+'\nVERIFIED TOOL OUTPUT (source of numerical truth):\n'+JSON.stringify(result)+
-  '\nWrite a SHORT, warm, user-facing answer in natural Hebrew. Never expose internal error messages, API statuses, codes, JSON keys, debugging or data-loading details. Do not mention attempted_api_requests. Never invent measured values, missing observations or stations. When all results have status unavailable, say simply that reliable measurements for the requested years could not be found, and offer to try other years or nearby stations. When nearby_fallback or nearest_with_available_data was used, clearly state which station was measured (not the requested town), and mention distance when available. For partial observations, explicitly call the sum partial, NOT a monthly total. Distinguish observations from forecasts. Keep concise and friendly.';
+  '\nAnswer in the USER QUESTION LANGUAGE (Hebrew or English), concisely and naturally. Never expose internal API statuses, debug details, or fabricate observations.'+
+  ' For regional_analogue_research: explain these are exploratory regional near-surface analogues based on ERA5 reanalysis, NOT full historic weather-map image matching.'+
+  ' Identify actual analogue dates and ERA5 rain amounts, and if available the forecast model estimated precipitation and maximum hourly precipitation probability.'+
+  ' NEVER turn the wet-day count among the top analogues into a calibrated rain probability; it is just a tiny retrospective comparison.'+
+  ' If the user requests a numeric rain chance, give the model probability only with its exact meaning, or say that no defensible calibrated probability is available.'+
+  ' Do not claim the data are real IMS gauge measurements when they are ERA5 reanalysis. For other tools distinguish observations from forecasts.'+
+  ' When near-station fallback is used, disclose the station name and distance. If data are missing, state uncertainty and offer a relevant next step.';
   const answer=await callGPT(responsePrompt);
   bubble.textContent=answer;
   if(spoken)window.AtmosVoiceUI?.onAnswer(answer,true);
