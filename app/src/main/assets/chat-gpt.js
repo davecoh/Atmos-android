@@ -97,6 +97,9 @@ function stationList(raw){
  .filter(x=>Number.isInteger(x.id)&&x.id>0);
 }
 const LOCATIONS=[
+ {name:'דרום רמת הגולן',aliases:['דרום רמת הגולן','דרום הגולן','רמת הגולן הדרומית','דרום הרמה','Southern Golan','South Golan','southern Golan Heights','southern part of the Golan'],lat:32.763,lon:35.663,region:true},
+ {name:'רמת הגולן',aliases:['רמת הגולן','Golan Heights','the Golan'],lat:32.91,lon:35.75,region:true},
+ {name:'צפון רמת הגולן',aliases:['צפון רמת הגולן','צפון הגולן','Northern Golan'],lat:33.13,lon:35.78,region:true},
  {name:'כפר חרוב',aliases:['כפר חרוב','כפר חרוב דרום הגולן'],lat:32.763,lon:35.663},
  {name:'קצרין',aliases:['קצרין'],lat:32.996,lon:35.689},
  {name:'אבני איתן',aliases:['אבני איתן'],lat:32.821,lon:35.762},
@@ -118,8 +121,8 @@ function desiredMonitor(metric){
 async function geocode(place){
  const name=String(place||'').trim();
  if(!name||name.length>80)throw Error('נדרש שם יישוב קצר כדי לאתר תחנה סמוכה.');
- const known=LOCATIONS.find(x=>x.aliases.some(a=>name===a||name.includes(a)));
- if(known)return {latitude:known.lat,longitude:known.lon,label:known.name,source:'יישוב מוגדר'};
+ const known=[...LOCATIONS].sort((a,b)=>Math.max(...b.aliases.map(x=>x.length))-Math.max(...a.aliases.map(x=>x.length))).find(x=>x.aliases.some(a=>name.toLowerCase()===a.toLowerCase()||name.toLowerCase().includes(a.toLowerCase())));
+ if(known)return {latitude:known.lat,longitude:known.lon,label:known.name,source:known.region?'regional reference point, NOT exact town':'defined locality',is_region:!!known.region};
  const url='https://geocoding-api.open-meteo.com/v1/search?'+new URLSearchParams({name,count:5,language:'en',format:'json'});
  let resp=await fetch(url);
  if(!resp.ok)throw Error('שירות זיהוי היישובים לא זמין ('+resp.status+')');
@@ -382,7 +385,7 @@ async function send(raw,options={}){
    ' For historical measurements select historical. Do not ask the user to provide stations or raw data; the application fetches them.'+
    ' For a requested town with no exact weather station, set match_strategy=nearest, place=the exact town name, stations=[]; the app geocodes it and calculates the closest station with the requested metric. Do not invent station coordinates.'+
    ' For historical provide metric rain,temp,max,min,wind,gust,humid, stations array of 1 or 2 numeric IDs FROM THE LIST, periods array of 1 or 2 objects {from,to} ISO dates (each at most 186 days). Preserve years including 1992.'+
-   ' For forecast use action forecast. For general explanation or ambiguous station use action general with answer. Do not invent weather measurements or station IDs. Recent community posts are only contextual and must be dated and attributed.';
+   ' For forecast use action forecast and include place and future date; for a requested multiple-day period include end_date. "Southern Golan"/"דרום הגולן" is a recognized region; use it as place, never ask to name a village. When asking for analysis of forecast precipitation maps use forecast, NOT historical or analogues. Use analogues only if a comparison with past similar atmospheric patterns is explicitly requested. For general explanations choose general. Never invent stations or measurements.';
   let plan;
   try{plan=jsonText(await callGPT(planning));}catch(e){throw Error('לא ניתן לפענח תוכנית שאילתות מהמודל: '+e.message)}
   if(plan.action==='historical'&&!stations.length){
@@ -400,7 +403,27 @@ async function send(raw,options={}){
   }
   let result;
   if(plan.action==='historical'){bubble.textContent='מחפש טיפות של מידע 💧';result=await historyTool(plan,stations);}
-  else if(plan.action==='forecast'){bubble.textContent='מציץ אל העתיד 🔮';result=await forecastTool(plan);}
+  else if(plan.action==='forecast'){
+    bubble.textContent='משווה מפות ונתוני מודלים 🗺️';
+    const forecast=await forecastTool(plan);
+    let maps=null;
+    if(window.AtmosPrecipMaps?.analyze){
+      try{
+       const placeName=String(plan.place||plan.locationName||'').trim();
+       const geo=placeName?await geocode(placeName):{
+        latitude:Number($('place').value.split(',')[0]),
+        longitude:Number($('place').value.split(',')[1]),
+        label:$('place').selectedOptions[0]?.textContent};
+       const today=isoLocal(new Date());
+       const requested=String(plan.date||today);
+       maps=await window.AtmosPrecipMaps.analyze({
+        latitude:geo.latitude,longitude:geo.longitude,place:geo.label,
+        start_date:requested,end_date:plan.end_date||requested
+       });
+      }catch(e){console.warn('Map aggregation not available',String(e));}
+    }
+    result={kind:'combined_forecast_map_research',forecast,precipitation_maps:maps};
+  }
   else if(plan.action==='analogues'){
     bubble.textContent='משווה למערכות מזג אוויר מהעבר 🗺️';
     result=await analogueTool(plan);
@@ -425,6 +448,8 @@ async function send(raw,options={}){
   ' Identify actual analogue dates and ERA5 rain amounts, and if available the forecast model estimated precipitation and maximum hourly precipitation probability.'+
   ' NEVER turn the wet-day count among the top analogues into a calibrated rain probability; it is just a tiny retrospective comparison.'+
   ' If the user requests a numeric rain chance, give the model probability only with its exact meaning, or say that no defensible calibrated probability is available.'+
+  ' For combined_forecast_map_research, summarize the numeric 3x3 model precipitation maps, model disagreement and synoptic context. These are derived from Open-Meteo, NOT downloaded Weather2day/Wetterzentrale images. For a region like Southern Golan say a representative reference point was used and local elevation may change rainfall.'+
+  ' Keep it to roughly 3-5 sentences unless the user explicitly asks for detailed analysis; show specific relevant model rain totals if present. Never invent a precise daily probability.'+
   ' Do not claim the data are real IMS gauge measurements when they are ERA5 reanalysis. For other tools distinguish observations from forecasts.'+
   ' When near-station fallback is used, disclose the station name and distance. If data are missing, state uncertainty and offer a relevant next step.';
   const answer=await callGPT(responsePrompt);
