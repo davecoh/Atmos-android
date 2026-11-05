@@ -454,6 +454,9 @@ async function send(raw,options={}){
   ' When near-station fallback is used, disclose the station name and distance. If data are missing, state uncertainty and offer a relevant next step.';
   const answer=await callGPT(responsePrompt);
   bubble.textContent=answer;
+  if(result?.kind==='combined_forecast_map_research'&&result.precipitation_maps){
+    try{window.AtmosPrecipMaps?.render(result.precipitation_maps,bubble);}catch(err){console.warn('Map display unavailable',String(err));}
+  }
   if(spoken)window.AtmosVoiceUI?.onAnswer(answer,true);
   history.push({role:'assistant',text:answer});
   history=history.slice(-10);
