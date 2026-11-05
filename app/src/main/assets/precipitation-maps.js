@@ -87,5 +87,62 @@ async function analyze({latitude,longitude,place,start_date,end_date}){
   limitations:'Do NOT call model agreement a calibrated rain probability. Rain totals are model predictions, not measurements. The grid resolution and elevation can cause significant local errors in the Golan; do NOT infer a rain gauge total or falsely claim to have seen original Weather2day map pixels.'
  };
 }
-window.AtmosPrecipMaps={analyze,models:MODELS};
+function render(result,anchor){
+ if(!result||!anchor)return;
+ const usable=(result.models||[]).filter(m=>m.available&&Array.isArray(m.grid));
+ if(!usable.length)return;
+ const panel=document.createElement('div');panel.className='precip-research';
+ const title=document.createElement('div');title.className='precip-heading';
+ title.textContent='🗺️ מפות גשם חזויות · '+result.place+' · '+result.forecast_period.from+
+  (result.forecast_period.to===result.forecast_period.from?'':'–'+result.forecast_period.to);
+ panel.append(title);
+ const text=document.createElement('p');
+ text.textContent='כל מפה מציגה גשם חזוי במ״מ בנקודה הנבחרת וב־8 נקודות סביבה. המרכז מסומן בלבן. אלו מפות שנוצרו מנתוני המודלים, לא תמונות מהאתרים.';
+ panel.append(text);
+ const canvas=document.createElement('canvas');
+ const w=460,pad=30,cell=68,panelHeight=300;
+ canvas.width=w;canvas.height=usable.length*panelHeight+75;
+ const ctx=canvas.getContext('2d');
+ if(!ctx)return;
+ ctx.fillStyle='#11273b';ctx.fillRect(0,0,canvas.width,canvas.height);
+ ctx.textAlign='center';ctx.fillStyle='#e8f5ff';ctx.font='bold 19px sans-serif';
+ ctx.fillText('Model precipitation forecast · mm',w/2,32);
+ const max=Math.max(1,...usable.flatMap(x=>x.grid.map(v=>v.rain_mm||0)));
+ function shade(v){const t=Math.max(0,Math.min(1,(v||0)/max));return 'rgb('+Math.round(28+18*t)+','+Math.round(70+120*t)+','+Math.round(111+119*t)+')';}
+ usable.forEach((model,index)=>{
+  const top=55+index*panelHeight;
+  ctx.fillStyle='#e8f5ff';ctx.font='bold 21px sans-serif';
+  ctx.fillText(model.name+' · center '+(model.center_mm??'—')+' mm',w/2,top+20);
+  for(const cellData of model.grid){
+   const x=124+cellData.col*cell,y=top+43+cellData.row*cell;
+   ctx.fillStyle=shade(cellData.rain_mm);ctx.fillRect(x,y,cell-3,cell-3);
+   ctx.fillStyle='#fff';ctx.font='bold 18px sans-serif';
+   ctx.fillText(cellData.rain_mm===null?'—':String(cellData.rain_mm),x+(cell-3)/2,y+40);
+   if(cellData.row===1&&cellData.col===1){
+    ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.strokeRect(x,y,cell-3,cell-3);
+   }
+  }
+  ctx.fillStyle='#bdd5e5';ctx.font='14px sans-serif';
+  ctx.fillText('N ↑ · selected location at white square',w/2,top+269);
+ });
+ ctx.fillStyle='#c1d9e7';ctx.font='14px sans-serif';
+ ctx.fillText('Open-Meteo model data · forecast, not observed rainfall',w/2,canvas.height-15);
+ canvas.style.width='100%';canvas.style.maxWidth='460px';canvas.style.height='auto';
+ panel.append(canvas);
+ const links=document.createElement('div');links.className='precip-links';
+ const original=[
+  ['GFS · Wetterzentrale rain','https://wetterzentrale.de/en/topkarten.php?model=gfs&map=19&var=4'],
+  ['GFS · accumulated','https://wetterzentrale.de/en/topkarten.php?model=gfs&map=19&var=18'],
+  ['Weather2day models','https://www.weather2day.co.il/models']
+ ];
+ for(const [label,url] of original){
+  const a=document.createElement('a');a.textContent=label;a.href=url;
+  a.rel='noopener noreferrer';a.target='_blank';links.append(a);
+ }
+ const save=document.createElement('a');save.textContent='⬇ שמור את מפת ההשוואה (PNG)';
+ save.href=canvas.toDataURL('image/png');save.download='atmos-precipitation-models.png';links.append(save);
+ panel.append(links);
+ anchor.insertAdjacentElement('afterend',panel);
+}
+window.AtmosPrecipMaps={analyze,models:MODELS,render};
 })();
