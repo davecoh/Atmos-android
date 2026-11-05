@@ -349,7 +349,8 @@ async function send(raw,options={}){
  const bubble=messages('assistant','רגע, מציץ בעננים ☁️');bubble.classList.add('loading');
  try{
   const now=isoLocal(new Date());
-  const historical=isHistoricalQuestion(fullQuestion)&&
+  const historical=(isHistoricalQuestion(fullQuestion)||
+    /historical (rainfall|temperature|measurements)|rainfall in (19|20)\d{2}|last month|rain last year|past observations/i.test(fullQuestion))&&
     !/דומ|מפה|מפות|מודל|תחזית|סיכוי|הסתברות|chance|probabilit|analog|similar|forecast|weather map|pattern/i.test(fullQuestion);
   let stations=[];
   if(historical){
@@ -384,6 +385,14 @@ async function send(raw,options={}){
    ' For forecast use action forecast. For general explanation or ambiguous station use action general with answer. Do not invent weather measurements or station IDs. Recent community posts are only contextual and must be dated and attributed.';
   let plan;
   try{plan=jsonText(await callGPT(planning));}catch(e){throw Error('לא ניתן לפענח תוכנית שאילתות מהמודל: '+e.message)}
+  if(plan.action==='historical'&&!stations.length){
+    bubble.textContent='מחפש תחנות מדידה 🌦️';
+    stations=await requireIMSStations();
+    const options=stations.slice(0,180).map(x=>x.id+':'+x.name).join('; ');
+    plan=jsonText(await callGPT('The user requests actual historical weather measurements: '+fullQuestion+
+      '. IMS station list: '+options+
+      '. Choose only JSON action historical with metric, stations numeric IDs, and periods ISO dates. If the requested town is not a listed station, set match_strategy nearest, place exact town name, stations empty. Do not invent data.'));
+  }
   if(historical&&knownPlace&&plan.action==='historical'){
     plan.match_strategy='nearest';
     plan.place=knownPlace;
