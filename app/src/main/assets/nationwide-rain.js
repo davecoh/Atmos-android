@@ -132,7 +132,7 @@ function rainFromRows(rows,meta,window){
  }
  return {rain_mm:count?Math.round(total*10)/10:null,samples:count,invalid};
 }
-async function observedLastNight(){
+async function observedLastNight({onProgress}={}){
  if(!window.AtmosIMS?.isConfigured())throw Error('IMS_NOT_CONFIGURED');
  const raw=await window.imsRequest('');
  const stations=window.imsList(raw).filter(x=>stationRainMonitor(x));
@@ -160,6 +160,7 @@ async function observedLastNight(){
     results.push({station:name,id:Number(station.stationId??station.id),...measured,
       state:measured.samples?'measured':'no_valid_rain_samples'});
    }catch(e){results.push({station:name,id:Number(station.stationId??station.id),state:'not_available',rain_mm:null,samples:0});}
+   if(typeof onProgress==='function'&&results.length%8===0)onProgress(results.length,stations.length);
   }
  }
  await Promise.all(Array.from({length:5},()=>worker()));
