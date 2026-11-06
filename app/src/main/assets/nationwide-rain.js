@@ -133,8 +133,8 @@ async function observedLastNight(){
  if(!window.AtmosIMS?.isConfigured())throw Error('IMS_NOT_CONFIGURED');
  const raw=await window.imsRequest('');
  const stations=window.imsList(raw).filter(x=>stationRainMonitor(x));
- const window=pastNightWindow(),endpoint=date=>date.replaceAll('-','/');
- const path=s=>'/'+Number(s.stationId??s.id)+'/data?from='+endpoint(window.query_from)+'&to='+endpoint(window.query_to);
+ const interval=pastNightWindow(),endpoint=date=>date.replaceAll('-','/');
+ const path=s=>'/'+Number(s.stationId??s.id)+'/data?from='+endpoint(interval.query_from)+'&to='+endpoint(interval.query_to);
  const results=[],limit=Date.now()+90000;
  let cursor=0;
  // Requests use the native Android bridge with 5 simultaneous HTTP workers.
@@ -145,7 +145,7 @@ async function observedLastNight(){
    try{
     const data=await window.imsRequest(path(station));
     const observations=window.imsList(data);
-    const measured=rainFromRows(observations,station,window);
+    const measured=rainFromRows(observations,station,interval);
     results.push({station:name,id:Number(station.stationId??station.id),...measured,
       state:measured.samples?'measured':'no_valid_rain_samples'});
    }catch(e){results.push({station:name,id:Number(station.stationId??station.id),state:'not_available',rain_mm:null,samples:0});}
@@ -155,7 +155,7 @@ async function observedLastNight(){
  const ranked=results.filter(r=>r.samples&&r.rain_mm!==null).sort((a,b)=>b.rain_mm-a.rain_mm);
  const dryCount=ranked.filter(x=>x.rain_mm===0).length;
  return {kind:'ims_nationwide_observed_last_night',
-  period:{from:window.from,to:window.to,timezone:'Asia/Jerusalem'},
+  period:{from:interval.from,to:interval.to,timezone:'Asia/Jerusalem'},
   stations_with_rain_monitor:stations.length,
   stations_checked:results.length,
   stations_with_valid_rain_samples:ranked.length,
