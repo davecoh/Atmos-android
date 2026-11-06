@@ -73,7 +73,7 @@ function nationwideForecastQuestion(q){
  const t=String(q||'');
  const national=/בארץ|בישראל|בכל הארץ|רחבי הארץ|Israel|across the country|nationwide|around Israel/i.test(t);
  const comparative=/איפה|היכן|אזור|אזורים|הכי הרבה|יותר|מרבית|most|where|which areas|highest/i.test(t);
- const rain=/גשם|גשמים|משקע|ממטר|rain|precipitation/i.test(t);
+ const rain=/גשם|גשמים|משקע|ממטר|ירד|ירדו|יירד|rain|precipitation/i.test(t);
  const future=/הלילה|הערב|מחר|היום|תחזית|צפוי|ירד|שבת|סוף שבוע|tonight|tomorrow|forecast|expected|will rain/i.test(t);
  return national&&comparative&&rain&&future&&!/ירד בעבר|אשתקד|בשנה שעברה|last year|yesterday/i.test(t);
 }
@@ -81,7 +81,7 @@ function nationwideObservedQuestion(q){
  const t=String(q||'');
  const national=/בארץ|בישראל|בכל הארץ|רחבי הארץ|Israel|across the country|nationwide/i.test(t);
  const geographic=/איפה|היכן|אזור|אזורים|הכי הרבה|יותר|most|where|which areas|highest/i.test(t);
- const precipitation=/גשם|משקע|ממטר|rain|precipitation/i.test(t);
+ const precipitation=/גשם|משקע|ממטר|ירד|ירדו|rain|precipitation/i.test(t);
  const previousNight=/הלילה|אמש|בלילה שעבר|last night/i.test(t);
  const past=/ירד|ירדו|נמדד|היה|fell|rained|recorded|last night/i.test(t);
  const nowHour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jerusalem',hour:'2-digit',hourCycle:'h23'}).format(new Date()));
@@ -496,7 +496,7 @@ async function send(raw,options={}){
   ' For ims_nationwide_observed_last_night: compare measured IMS station totals for the reported 18:00-06:00 window. Mention actual station names and how many stations returned valid samples; DO NOT treat missing samples as zero, or claim a verified national record if coverage incomplete. These are observations, not forecasts. NEVER ask to pick a town for a nationwide question.'+
   ' For israel_national_precipitation_comparison: compare the ranked sampled locations, list 3-5 leading regions with model mean rainfall in mm and the exact Israel-local hours. Do NOT claim you checked all IMS stations: these are MODEL forecast grid points, not observations. No city clarification is needed. If all amounts are zero say so. A sampled maximum is not a verified nationwide maximum.'+
   ' For combined_forecast_map_research, summarize the numeric 3x3 model precipitation maps, model disagreement and synoptic context. These are derived from Open-Meteo, NOT downloaded Weather2day/Wetterzentrale images. For a region like Southern Golan say a representative reference point was used and local elevation may change rainfall.'+
-  ' Keep it to roughly 3-5 sentences unless the user explicitly asks for detailed analysis; show specific relevant model rain totals if present. Never invent a precise daily probability.'+
+  ' Keep it to roughly 3-5 sentences unless the user explicitly asks for detailed analysis; show specific relevant model rain totals if present. Never invent a precise daily probability. Use plain text only, no Markdown syntax (no **, ###, or bullets).'+
   ' Do not claim the data are real IMS gauge measurements when they are ERA5 reanalysis. For other tools distinguish observations from forecasts.'+
   ' When near-station fallback is used, disclose the station name and distance. If data are missing, state uncertainty and offer a relevant next step.';
   const answer=await callGPT(responsePrompt);
