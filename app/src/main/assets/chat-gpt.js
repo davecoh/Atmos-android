@@ -441,7 +441,9 @@ async function send(raw,options={}){
   else if(plan.action==='nationwide_observed'){
     bubble.textContent='משווה מדידות גשם מתחנות שמ״ט ברחבי הארץ 🌧️';
     if(!window.AtmosNationwide?.observedLastNight)throw Error('NATIONAL_OBSERVATIONS_UNAVAILABLE');
-    result=await window.AtmosNationwide.observedLastNight();
+    result=await window.AtmosNationwide.observedLastNight({
+      onProgress:(done,total)=>{bubble.textContent='בודק תחנות גשם ברחבי הארץ: '+done+' מתוך '+total+' ☔';}
+    });
   }
   else if(plan.action==='nationwide_rain'){
     bubble.textContent='בודק איפה המודלים מצפים לגשם בישראל 🌧️';
