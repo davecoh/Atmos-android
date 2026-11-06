@@ -93,5 +93,78 @@ async function compare({period,date}={}){
   low_rain_areas:ranked.slice(-4),all_areas:locations,
   limitations:'Sampled representative towns/regions, not every location or actual IMS station; highest among sampled areas is NOT guaranteed nationwide maximum. Mean mm is a simple model consensus, not a calibrated rain probability. Rainfall is a forecast, not IMS observation. Model grids differ in resolution. A single night may span two dates; time window in Israel local time is explicit. Do not infer confidence from number of models alone.'};
 }
-window.AtmosNationwide={compare};
+
+function pastNightWindow(){
+ const now=parts(Date.now()),yesterday=new Date(now.date+'T12:00:00Z');
+ const today=now.date;
+ // Before 10am "last night" means yesterday 18:00 -> today 06:00.
+ // After 10am past tense can mean the previous night as well.
+ yesterday.setUTCDate(yesterday.getUTCDate()-1);
+ const prior=yesterday.toISOString().slice(0,10);
+ return {from:prior+'T18:00',to:today+'T06:00',query_from:prior,query_to:today};
+}
+function stationRainMonitor(st){
+ const monitors=Array.isArray(st.monitors)?st.monitors:[];
+ return monitors.some(m=>m.active!==false&&/^(rain|rain1min)$/i.test(String(m.name||'').replace(/[^a-z0-9]/ig,'')));
+}
+function rainFromRows(rows,meta,window){
+ const channels=new Map((meta?.monitors||[]).map(m=>[String(m.channelId),String(m.name||'')]));
+ let total=0,count=0,invalid=0;
+ for(const row of rows){
+  const raw=String(row.datetime||'');
+  if(!raw)continue;
+  const parsed=Date.parse(raw);
+  if(!Number.isFinite(parsed))continue;
+  const t=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Jerusalem',
+    year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',
+    minute:'2-digit',hourCycle:'h23'}).format(new Date(parsed)).replace(' ','T');
+  if(t<window.from||t>=window.to)continue;
+  for(const c of row.channels||[]){
+   const channel=String(c.name||channels.get(String(c.id))||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+   if(channel!=='rain')continue;
+   if(typeof c.value==='number'&&Number.isFinite(c.value)&&c.valid!==false&&c.status!==2){
+    total+=c.value;count++;
+   }else invalid++;
+  }
+ }
+ return {rain_mm:count?Math.round(total*10)/10:null,samples:count,invalid};
+}
+async function observedLastNight(){
+ if(!window.AtmosIMS?.isConfigured())throw Error('IMS_NOT_CONFIGURED');
+ const raw=await window.imsRequest('');
+ const stations=window.imsList(raw).filter(x=>stationRainMonitor(x));
+ const window=pastNightWindow(),endpoint=date=>date.replaceAll('-','/');
+ const path=s=>'/'+Number(s.stationId??s.id)+'/data?from='+endpoint(window.query_from)+'&to='+endpoint(window.query_to);
+ const results=[],limit=Date.now()+90000;
+ let cursor=0;
+ // Requests use the native Android bridge with 5 simultaneous HTTP workers.
+ async function worker(){
+  while(cursor<stations.length&&Date.now()<limit){
+   const station=stations[cursor++];
+   const name=window.hebrewStationName(station.name||station.stationName||'');
+   try{
+    const data=await window.imsRequest(path(station));
+    const observations=window.imsList(data);
+    const measured=rainFromRows(observations,station,window);
+    results.push({station:name,id:Number(station.stationId??station.id),...measured,
+      state:measured.samples?'measured':'no_valid_rain_samples'});
+   }catch(e){results.push({station:name,id:Number(station.stationId??station.id),state:'not_available',rain_mm:null,samples:0});}
+  }
+ }
+ await Promise.all(Array.from({length:5},()=>worker()));
+ const ranked=results.filter(r=>r.samples&&r.rain_mm!==null).sort((a,b)=>b.rain_mm-a.rain_mm);
+ const dryCount=ranked.filter(x=>x.rain_mm===0).length;
+ return {kind:'ims_nationwide_observed_last_night',
+  period:{from:window.from,to:window.to,timezone:'Asia/Jerusalem'},
+  stations_with_rain_monitor:stations.length,
+  stations_checked:results.length,
+  stations_with_valid_rain_samples:ranked.length,
+  stations_without_valid_rain_samples:results.length-ranked.length,
+  top_stations:ranked.slice(0,12),
+  dry_stations_with_valid_samples:dryCount,
+  result_completeness:results.length===stations.length?'queried_all_available_rain_stations':'partial_due_to_time_limit',
+  note:'Direct IMS automatic station observations. Rain is summed from valid Rain-channel measurements in the exact local 18:00-06:00 period. Zero is only a valid zero when samples exist. No sample is NOT zero. Compare measured stations, not forecasts. Data may be provisional and missing samples cannot be distinguished from true dry conditions. The true national maximum cannot be guaranteed with gaps.'
+ };
+}
+window.AtmosNationwide={compare,observedLastNight};
 })();
