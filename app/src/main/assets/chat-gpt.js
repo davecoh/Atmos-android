@@ -69,6 +69,20 @@ function isHistoricalQuestion(q){
  return /גשם|משקע|ירד|טמפרטור|מעלות|רוח|לחות|מדידות|תחנות|תחנה|היסטורי|שנת|בשנת|מרץ|ינואר|פברואר|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|199[0-9]|20[0-2][0-9]/i.test(t)
    && !/תחזית|מודל|מחר|בעוד|בשבת הבאה/.test(t);
 }
+function nationwideForecastQuestion(q){
+ const t=String(q||'');
+ const national=/בארץ|בישראל|בכל הארץ|רחבי הארץ|Israel|across the country|nationwide|around Israel/i.test(t);
+ const comparative=/איפה|היכן|אזור|אזורים|הכי הרבה|יותר|מרבית|most|where|which areas|highest/i.test(t);
+ const rain=/גשם|גשמים|משקע|ממטר|rain|precipitation/i.test(t);
+ const future=/הלילה|הערב|מחר|היום|תחזית|צפוי|ירד|שבת|סוף שבוע|tonight|tomorrow|forecast|expected|will rain/i.test(t);
+ return national&&comparative&&rain&&future&&!/ירד בעבר|אשתקד|בשנה שעברה|last year|yesterday/i.test(t);
+}
+function inferNationalPeriod(q){
+ const t=String(q||'');
+ return /הלילה|הערב|tonight/i.test(t)?'tonight':
+  /מחר|tomorrow/i.test(t)?'tomorrow':
+  /סוף השבוע|סופש|weekend/i.test(t)?'weekend':'today';
+}
 function isStationDirectoryQuestion(q){return /רשימ[הת]|אילו תחנות|איזה תחנות|תן לי.*תחנות|הצג.*תחנות/.test(String(q||''));}
 async function requireIMSStations(){
  if(!window.AtmosIMS)throw Error('רכיב השמ״ט אינו זמין בגרסה הזאת.');
@@ -356,10 +370,11 @@ async function send(raw,options={}){
     /historical (rainfall|temperature|measurements)|rainfall in (19|20)\d{2}|last month|rain last year|past observations/i.test(fullQuestion))&&
     !/דומ|מפה|מפות|מודל|תחזית|סיכוי|הסתברות|chance|probabilit|analog|similar|forecast|weather map|pattern/i.test(fullQuestion);
   let stations=[];
-  if(historical){
+  const nationwideIntent=nationwideForecastQuestion(fullQuestion);
+  if(historical&&!nationwideIntent){
     bubble.textContent='מוציא מטרייה לנתונים ☔';
     stations=await requireIMSStations();
-  }else if(window.AtmosIMS?.isConfigured()){
+  }else if(isStationDirectoryQuestion(fullQuestion)&&window.AtmosIMS?.isConfigured()){
     try{stations=stationList(await window.imsRequest(''));}catch(e){stations=[];}
   }
   if(isStationDirectoryQuestion(fullQuestion)){
@@ -379,6 +394,7 @@ async function send(raw,options={}){
    '. Place without exact station match in the user question: '+(knownPlace||'none')+
    '. Reply ONLY with a JSON object: action historical, forecast, analogues or general.'+
    ' This is an OPEN-ENDED weather assistant, NOT limited to IMS. Historical observations at specific past dates -> historical (IMS).'+
+   ' If the question asks WHERE in ISRAEL rain is forecast to be strongest (e.g. tonight), use action nationwide_rain, with period tonight/today/tomorrow/weekend. Do not ask for a town: compare forecast data for all regions. All current forecast numerical data is retrieved by tools and is NOT in your model memory.'+
    ' Future rain or temperature trends -> forecast. Historical *similar weather patterns* / analog weather maps / similar pressure setups in past seasons -> analogues.'+
    ' For analogues include place as a city or town, date as future ISO YYYY-MM-DD within the next 7 days. For forecast include place and date as well.'+
    ' Do not route forecast questions to IMS simply because they mention rainfall. General questions should work without IMS.'+
@@ -388,6 +404,11 @@ async function send(raw,options={}){
    ' For forecast use action forecast and include place and future date; for a requested multiple-day period include end_date. "Southern Golan"/"דרום הגולן" is a recognized region; use it as place, never ask to name a village. When asking for analysis of forecast precipitation maps use forecast, NOT historical or analogues. Use analogues only if a comparison with past similar atmospheric patterns is explicitly requested. For general explanations choose general. Never invent stations or measurements.';
   let plan;
   try{plan=jsonText(await callGPT(planning));}catch(e){throw Error('לא ניתן לפענח תוכנית שאילתות מהמודל: '+e.message)}
+  if(nationwideIntent){
+    // Guardrail: countrywide forecast questions must use nationwide data,
+    // even if the planning model confuses a comparison with a local query.
+    plan={action:'nationwide_rain',period:inferNationalPeriod(fullQuestion)};
+  }
   if(plan.action==='historical'&&!stations.length){
     bubble.textContent='מחפש תחנות מדידה 🌦️';
     stations=await requireIMSStations();
@@ -403,6 +424,11 @@ async function send(raw,options={}){
   }
   let result;
   if(plan.action==='historical'){bubble.textContent='מחפש טיפות של מידע 💧';result=await historyTool(plan,stations);}
+  else if(plan.action==='nationwide_rain'){
+    bubble.textContent='בודק איפה המודלים מצפים לגשם בישראל 🌧️';
+    if(!window.AtmosNationwide?.compare)throw Error('NATIONAL_FORECAST_UNAVAILABLE');
+    result=await window.AtmosNationwide.compare({period:plan.period||inferNationalPeriod(fullQuestion)});
+  }
   else if(plan.action==='forecast'){
     bubble.textContent='משווה מפות ונתוני מודלים 🗺️';
     const forecast=await forecastTool(plan);
@@ -448,6 +474,7 @@ async function send(raw,options={}){
   ' Identify actual analogue dates and ERA5 rain amounts, and if available the forecast model estimated precipitation and maximum hourly precipitation probability.'+
   ' NEVER turn the wet-day count among the top analogues into a calibrated rain probability; it is just a tiny retrospective comparison.'+
   ' If the user requests a numeric rain chance, give the model probability only with its exact meaning, or say that no defensible calibrated probability is available.'+
+  ' For israel_national_precipitation_comparison: compare the ranked sampled locations, list 3-5 leading regions with model mean rainfall in mm and the exact Israel-local hours. Do NOT claim you checked all IMS stations: these are MODEL forecast grid points, not observations. No city clarification is needed. If all amounts are zero say so. A sampled maximum is not a verified nationwide maximum.'+
   ' For combined_forecast_map_research, summarize the numeric 3x3 model precipitation maps, model disagreement and synoptic context. These are derived from Open-Meteo, NOT downloaded Weather2day/Wetterzentrale images. For a region like Southern Golan say a representative reference point was used and local elevation may change rainfall.'+
   ' Keep it to roughly 3-5 sentences unless the user explicitly asks for detailed analysis; show specific relevant model rain totals if present. Never invent a precise daily probability.'+
   ' Do not claim the data are real IMS gauge measurements when they are ERA5 reanalysis. For other tools distinguish observations from forecasts.'+
