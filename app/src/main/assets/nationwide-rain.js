@@ -145,7 +145,15 @@ async function observedLastNight(){
    try{
     const data=await window.imsRequest(path(station));
     const observations=window.imsList(data);
-    const measured=rainFromRows(observations,station,interval);
+    let measured=rainFromRows(observations,station,interval);
+    // Some IMS replies contain only numeric channel IDs; retrieve monitor
+    // metadata before concluding the Rain channel was absent.
+    if(!measured.samples&&observations.length){
+      try{
+       const details=await window.imsRequest('/'+Number(station.stationId??station.id));
+       measured=rainFromRows(observations,details,interval);
+      }catch(e){/* Missing metadata is not an observed zero. */}
+    }
     results.push({station:name,id:Number(station.stationId??station.id),...measured,
       state:measured.samples?'measured':'no_valid_rain_samples'});
    }catch(e){results.push({station:name,id:Number(station.stationId??station.id),state:'not_available',rain_mm:null,samples:0});}
