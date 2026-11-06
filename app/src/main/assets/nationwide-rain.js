@@ -105,6 +105,9 @@ function pastNightWindow(){
 }
 function stationRainMonitor(st){
  const monitors=Array.isArray(st.monitors)?st.monitors:[];
+ // Don't discard a station solely because the directory omits monitor metadata.
+ // The station response itself will determine whether usable rain observations exist.
+ if(!monitors.length)return true;
  return monitors.some(m=>m.active!==false&&/^(rain|rain1min)$/i.test(String(m.name||'').replace(/[^a-z0-9]/ig,'')));
 }
 function rainFromRows(rows,meta,window){
