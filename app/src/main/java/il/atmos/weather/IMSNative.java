@@ -36,7 +36,7 @@ public class IMSNative {
     private final Activity activity;
     private final WebView web;
     private final Handler ui = new Handler(Looper.getMainLooper());
-    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final ExecutorService io = Executors.newFixedThreadPool(5);
 
     IMSNative(Activity activity, WebView web) {
         this.activity=activity;
