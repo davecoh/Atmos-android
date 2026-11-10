@@ -84,90 +84,80 @@ function renderHourlyTemperature(modelsData){
 }
 async function findRecentIMSTemperature(placeLat,placeLon,seq){
  const target=$('imsCurrentObservation');
- target.textContent='';
- if(!window.AtmosIMS?.isConfigured())return;
- const isKfarHaruv=Math.abs(placeLat-32.763)<.008&&Math.abs(placeLon-35.663)<.009;
- const elevation=isKfarHaruv?315:null;
- const distanceKm=(a,b,c,d)=>{
-  const rad=Math.PI/180,R=6371,dy=(c-a)*rad,dx=(d-b)*rad;
-  const q=Math.sin(dy/2)**2+Math.cos(a*rad)*Math.cos(c*rad)*Math.sin(dx/2)**2;
-  return 2*R*Math.asin(Math.min(1,Math.sqrt(q)));
- };
- const metadataAltitude=x=>{
-  const n=Number(x.elevation??x.altitude??x.height??x.stationHeight??x.stationElevation??x.location?.elevation??x.location?.altitude);
-  return Number.isFinite(n)&&n>=-450&&n<=2400?n:null;
- };
- const getTemperature=(rows,metadata)=>{
-  const channels=metadata?.monitors||[];
-  const tdIds=new Set(channels.filter(m=>String(m.name||'').toUpperCase()==='TD')
-    .map(m=>String(m.channelId??m.id)));
-  return rows.flatMap(row=>{
-    const timestamp=Date.parse(row.datetime||row.dateTime||'');
-    const ageMinutes=(Date.now()-timestamp)/60000;
-    if(!Number.isFinite(ageMinutes)||ageMinutes< -10||ageMinutes>90)return [];
-    return (row.channels||[]).filter(c=>{
-      const name=String(c.name||'').toUpperCase();
-      return (name==='TD'||tdIds.has(String(c.id??c.channelId)))&&
-        typeof c.value==='number'&&Number.isFinite(c.value)&&c.value>=-25&&c.value<=55&&
-        c.valid!==false&&c.status!==2;
-    }).map(c=>({temp:c.value,ageMinutes,datetime:row.datetime}));
-  }).sort((a,b)=>a.ageMinutes-b.ageMinutes);
- };
+ target.textContent='בודק תחנות מדידה סמוכות…';
+ if(!window.AtmosIMS?.isConfigured()){
+  target.textContent='טמפרטורה נוכחית: הערכת מודל, ללא מדידת תחנה מקומית.';
+  return;
+ }
  try{
   const raw=await imsRequest('');
   if(seq!==forecastSeq)return;
-  const candidates=imsList(raw).map(x=>{
-    const loc=x.location||x.coordinates||{};
-    const lat=Number(loc.latitude??loc.lat??x.latitude);
-    const lon=Number(loc.longitude??loc.lon??loc.lng??x.longitude);
-    if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
-    const distance=distanceKm(placeLat,placeLon,lat,lon);
-    if(distance>35)return null;
-    const monitorNames=(x.monitors||[]).map(m=>String(m.name||'').toUpperCase());
-    if(monitorNames.length&&!monitorNames.includes('TD'))return null;
-    const altitude=metadataAltitude(x);
-    // The Sea of Galilee is far below Kfar Haruv; proximity is NOT enough.
-    const altitudePenalty=elevation!==null&&altitude!==null?
-      Math.abs(altitude-elevation)/35:0;
-    const distanceScore=distance+altitudePenalty;
-    return {id:Number(x.stationId??x.id),name:hebrewStationName(x.name||x.stationName||''),
-      distance,altitude,rank:distanceScore};
-  }).filter(x=>x&&Number.isInteger(x.id)).sort((a,b)=>a.rank-b.rank).slice(0,8);
-  const verified=[];
-  for(const station of candidates){
+  const selectedName=$('place').selectedOptions[0]?.textContent||'';
+  const isHaruv=/כפר חרוב|kfar haruv/i.test(selectedName);
+  const referenceElevation=isHaruv?315:null;
+  const eligible=imsList(raw).map(x=>{
+   const loc=x.location||x.coordinates||{};
+   const lat=Number(loc.latitude??loc.lat??x.latitude);
+   const lon=Number(loc.longitude??loc.lon??loc.lng??x.longitude);
+   const id=Number(x.stationId??x.id);
+   if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isInteger(id))return null;
+   const dLat=(lat-placeLat)*111.2,dLon=(lon-placeLon)*111.2*Math.cos(placeLat*Math.PI/180);
+   const distance=Math.hypot(dLat,dLon);
+   const name=hebrewStationName(x.name||x.stationName||'');
+   const altitude=Number(x.altitude??x.elevation??loc.altitude??loc.elevation);
+   const elevation=Number.isFinite(altitude)&&altitude>=-450&&altitude<=2500?altitude:null;
+   const monitors=Array.isArray(x.monitors)?x.monitors:[];
+   const hasTemp=monitors.length===0||monitors.some(m=>m.active!==false&&
+    /^(TD|TEMPERATURE|T2M)$/i.test(String(m.name||'')));
+   if(!hasTemp||distance>32)return null;
+   const elevationPenalty=referenceElevation!==null&&elevation!==null?
+     Math.abs(elevation-referenceElevation)*0.045:0;
+   const preferred=isHaruv&&/אבני איתן|avne etan/i.test(name)?-2:0;
+   return {id,name,distance,elevation,score:distance+elevationPenalty+preferred};
+  }).filter(Boolean).sort((a,b)=>a.score-b.score).slice(0,6);
+  const recent=[];
+  for(const st of eligible){
    if(seq!==forecastSeq)return;
-   let meta={};try{meta=await imsRequest('/'+station.id);}catch(e){}
-   const altitude=metadataAltitude(meta)??station.altitude;
-   // When heights are known, reject extreme valley vs plateau mismatches.
-   if(elevation!==null&&altitude!==null&&Math.abs(elevation-altitude)>280)continue;
-   let latest;try{latest=await imsRequest('/'+station.id+'/data/latest');}catch(e){continue;}
-   const records=imsList(latest);
-   const rows=records.length?records:(latest?.channels?[latest]:latest?.data?.channels?[latest.data]:[]);
-   const temps=getTemperature(rows,meta);
-   if(!temps.length)continue;
-   const best=temps[0];
-   verified.push({...station,altitude,...best,
-     adjustedRank:station.distance+
-      (elevation!==null&&altitude!==null?Math.abs(elevation-altitude)/25:5)+
-      best.ageMinutes/15});
-   if(verified.length>=3)break;
+   try{
+    const [metadata,rawLatest]=await Promise.all([
+     imsRequest('/'+st.id),imsRequest('/'+st.id+'/data/latest')
+    ]);
+    const channels=new Map((metadata?.monitors||[]).map(m=>
+      [String(m.channelId??m.id),String(m.name||'').toUpperCase()]));
+    const payload=rawLatest?.data??rawLatest;
+    const rows=imsList(rawLatest);
+    if(!rows.length&&Array.isArray(payload?.channels))rows.push(payload);
+    if(!rows.length&&Array.isArray(payload?.data))rows.push(...payload.data);
+    const obs=rows.flatMap(row=>{
+     const date=Date.parse(row.datetime??row.time??row.date??'');
+     const ageMinutes=(Date.now()-date)/60000;
+     if(!Number.isFinite(date)||ageMinutes< -5||ageMinutes>95)return [];
+     return (row.channels||[]).filter(ch=>{
+      const key=String(ch.name||channels.get(String(ch.id??ch.channelId))||'').toUpperCase();
+      return key==='TD'&&typeof ch.value==='number'&&Number.isFinite(ch.value)&&
+       ch.value>-30&&ch.value<55&&ch.valid!==false&&ch.status!==2;
+     }).map(ch=>({temp:ch.value,ageMinutes,time:date}));
+    }).sort((a,b)=>a.ageMinutes-b.ageMinutes);
+    if(obs.length)recent.push({...st,...obs[0]});
+   }catch(e){console.warn('Temperature station unavailable',st.id);}
   }
   if(seq!==forecastSeq)return;
-  verified.sort((a,b)=>a.adjustedRank-b.adjustedRank);
-  if(!verified.length){
-   target.textContent='לא נמצאה כרגע מדידת טמפרטורה עדכנית מתחנה שמתאימה לגובה ולמיקום. המספר הראשי הוא הערכת מודל.';
+  recent.sort((a,b)=>a.score-b.score);
+  if(!recent.length){
+   target.textContent='אין כרגע מדידת טמפרטורה עדכנית מתחנה סמוכה. המספר הגדול הוא הערכת מודל.';
    return;
   }
-  const top=verified[0];
-  const altitudeNote=top.altitude===null?'גובה התחנה לא ידוע':'גובה תחנה '+Math.round(top.altitude)+' מ׳';
-  target.textContent='🌡️ מדידה בתחנת '+top.name+': '+fmt(top.temp,1)+'° · '+top.distance.toFixed(1)+
-   ' ק״מ · '+altitudeNote+' · לפני '+Math.round(top.ageMinutes)+' דקות. לא מדידה ביישוב עצמו.';
-  if(verified.length>1){
-   const others=verified.slice(1).map(x=>x.name+' '+fmt(x.temp,1)+'°').join(' · ');
-   target.textContent+=' תחנות נוספות: '+others+'.';
+  const best=recent[0];
+  const stamp=new Date(best.time).toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'});
+  const provenance='🌡️ תחנת '+best.name+' · '+best.distance.toFixed(1)+' ק״מ · '+stamp;
+  target.textContent=provenance+': '+fmt(best.temp,1)+'° (מדידה בתחנה, לא בכפר חרוב עצמו)';
+  const details=recent.slice(1,3).map(x=>x.name+' '+fmt(x.temp,1)+'° ('+x.distance.toFixed(0)+' ק״מ)');
+  if(details.length)target.textContent+=' · להשוואה: '+details.join(' · ');
+  if(isHaruv){
+   target.textContent+=' · כפר חרוב כ־315 מ׳ מעל פני הים; הבדלי גובה ומיקום עשויים להסביר פערים.';
   }
  }catch(e){
-  target.textContent='לא ניתן לאמת כרגע מדידה סמוכה; הטמפרטורה הראשית היא הערכת מודל.';
+  if(seq===forecastSeq)target.textContent='לא ניתן כרגע לאמת מדידת תחנה סמוכה; מוצגת הערכת המודל בלבד.';
  }
 }
 const mapPending=new Map();
