@@ -163,7 +163,10 @@ async function findRecentIMSTemperature(placeLat,placeLon,seq){
   const best=recent[0];
   const stamp=new Date(best.time).toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'});
   const provenance='🌡️ תחנת '+best.name+' · '+best.distance.toFixed(1)+' ק״מ · '+stamp;
-  target.textContent=provenance+': '+fmt(best.temp,1)+'° (מדידה בתחנה, לא בכפר חרוב עצמו)';
+  const originalModel=$('todayTemp').textContent;
+  $('todayTemp').textContent=fmt(best.temp,0)+'°';
+  $('currentTempLabel').textContent='מדידה עדכנית בתחנת '+best.name+' ('+best.distance.toFixed(1)+' ק״מ) · '+stamp+' · לא מדידה ביישוב עצמו';
+  target.textContent=provenance+': '+fmt(best.temp,1)+'° · הערכת המודל ליישוב: '+originalModel;
   const details=recent.slice(1,3).map(x=>x.name+' '+fmt(x.temp,1)+'° ('+x.distance.toFixed(0)+' ק״מ)');
   if(details.length)target.textContent+=' · להשוואה: '+details.join(' · ');
   if(isHaruv){
