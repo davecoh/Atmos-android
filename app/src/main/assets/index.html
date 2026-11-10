@@ -116,7 +116,8 @@ async function findRecentIMSTemperature(placeLat,placeLon,seq){
    const dLat=(lat-placeLat)*111.2,dLon=(lon-placeLon)*111.2*Math.cos(placeLat*Math.PI/180);
    const distance=Math.hypot(dLat,dLon);
    const name=hebrewStationName(x.name||x.stationName||'');
-   const altitude=Number(x.altitude??x.elevation??loc.altitude??loc.elevation);
+   const rawAlt=x.altitude??x.elevation??loc.altitude??loc.elevation;
+   const altitude=rawAlt===null||rawAlt===undefined||rawAlt===''?NaN:Number(rawAlt);
    const elevation=Number.isFinite(altitude)&&altitude>=-450&&altitude<=2500?altitude:null;
    const monitors=Array.isArray(x.monitors)?x.monitors:[];
    const hasTemp=monitors.length===0||monitors.some(m=>m.active!==false&&
@@ -299,6 +300,7 @@ async function load(){
  refreshWeatherNews();
  try{
   const p=new URLSearchParams({latitude,longitude,
+   ...(Math.abs(Number(latitude)-32.763)<.008&&Math.abs(Number(longitude)-35.663)<.009?{elevation:'315'}:{}),
    current:'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m',
    hourly:'temperature_2m,precipitation,wind_speed_10m',
    daily:'temperature_2m_min,temperature_2m_max,precipitation_sum',
@@ -335,11 +337,11 @@ async function load(){
   const nowTemp=primary?.current?.temperature_2m;
   $('todayTemp').textContent=Number.isFinite(nowTemp)?fmt(nowTemp,0)+'°':'—°';
   $('currentTempLabel').textContent=Number.isFinite(nowTemp)?
-   'הערכה נוכחית לפי מודל · '+(primary.current.time?.slice(11,16)||'')+
+   'הערכת מודל למיקום (לא מדידה) · '+(primary.current.time?.slice(11,16)||'')+
    ' · מרגיש כמו '+fmt(primary.current.apparent_temperature,0)+'°':
    'טמפרטורה נוכחית אינה זמינה';
   $('todayRange').textContent='מינימום היום '+fmt(averaged[0]?.min,0)+'°  ·  מקסימום '+fmt(averaged[0]?.max,0)+'°';
-  $('summary').textContent='תחזית מקומית · '+current.length+' מודלים להשוואה';
+  $('summary').textContent='תחזית מקומית · '+current.length+' מודלים להשוואה'+(Math.abs(Number(latitude)-32.763)<.008?' · גובה כפר חרוב 315 מ׳':'');
   $('rainTotal').textContent=fmt(averaged.reduce((sum,d)=>sum+(d.rain||0),0))+' מ״מ';
   $('windMax').textContent=fmt(Math.max(0,...averaged.map(d=>d.wind||0)),0)+' קמ״ש';
   $('days').innerHTML=averaged.map(d=>'<div class="day"><small>'+
