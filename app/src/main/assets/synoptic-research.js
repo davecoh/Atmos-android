@@ -39,6 +39,7 @@ async function fetchModel(model){
   // Some providers omit specific 700-hPa or high-altitude parameters.
   // Retain synoptic pressure and 850-hPa temperature rather than losing the model.
   args.set('hourly','pressure_msl,temperature_850hPa,precipitation');
+  args.set('forecast_days','7');
   response=await fetchTimed('https://api.open-meteo.com/v1/'+model.endpoint+'?'+args);
  }
  const sites=Array.isArray(response)?response:[response];
