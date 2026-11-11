@@ -111,8 +111,21 @@ async function previousRuns(){
   }));
  }catch(e){return null;}
 }
+async function refreshPublicCommentary(){
+ if(!window.AtmosNews?.refresh)return;
+ await new Promise(resolve=>{
+  let ended=false;
+  const done=()=>{if(ended)return;ended=true;window.removeEventListener('atmosNewsUpdated',done);clearTimeout(timer);resolve();};
+  const timer=setTimeout(done,9000);
+  window.addEventListener('atmosNewsUpdated',done);
+  try{window.AtmosNews.refresh('forecast-news');}catch(e){done();}
+ });
+}
 async function analyze(opts={}){
- const settled=await Promise.allSettled(MODELS.map(fetchModel));
+ const [settled]=await Promise.all([
+  Promise.allSettled(MODELS.map(fetchModel)),
+  refreshPublicCommentary()
+ ]);
  const models=settled.map((result,i)=>{
   if(result.status!=='fulfilled')return {name:MODELS[i].name,available:false};
   return {name:MODELS[i].name,available:true,days:hourlySummaries(result.value)};
