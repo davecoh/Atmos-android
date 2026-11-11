@@ -33,7 +33,14 @@ async function fetchModel(model){
   longitude:GRID.map(p=>p.lon.toFixed(3)).join(','),
   timezone:'Asia/Jerusalem',forecast_days:'8',hourly:FIELDS.join(',')
  });
- const response=await fetchTimed('https://api.open-meteo.com/v1/'+model.endpoint+'?'+args);
+ let response;
+ try{response=await fetchTimed('https://api.open-meteo.com/v1/'+model.endpoint+'?'+args);}
+ catch(error){
+  // Some providers omit specific 700-hPa or high-altitude parameters.
+  // Retain synoptic pressure and 850-hPa temperature rather than losing the model.
+  args.set('hourly','pressure_msl,temperature_850hPa,precipitation');
+  response=await fetchTimed('https://api.open-meteo.com/v1/'+model.endpoint+'?'+args);
+ }
  const sites=Array.isArray(response)?response:[response];
  if(sites.length!==GRID.length)throw Error('Incomplete synoptic grid');
  return sites;
@@ -130,7 +137,7 @@ async function analyze(opts={}){
   days:x.days.map(d=>({date:d.date,snapshots:d.synoptic_snapshots
    .filter(s=>/T12:00/.test(s.valid_time))
    .map(s=>({time:s.valid_time,regions:s.regions.filter(r=>
-    ['Eastern Mediterranean','Northern Israel','Southern Golan','Central Israel'].includes(r.name))}))}))
+    ['Eastern Mediterranean','Southern Golan','Central Israel'].includes(r.name))}))}))
  }));
  return {
   kind:'synoptic_multi_day_forecast',
