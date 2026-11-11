@@ -128,7 +128,7 @@ async function analyze(opts={}){
     rain_center_mm:day.rain_central_israel_mm,
     rain_south_mm:day.rain_southern_israel_mm,
     rain_golan_mm:day.rain_southern_golan_mm,
-    four_times_local:day.synoptic_snapshots.map(x=>x.valid_time)});
+    map_times_available:day.synoptic_snapshots.length});
   }
  }
  // Keep a detailed subset of representative 00/12 UTC-ish map grids.
@@ -137,7 +137,7 @@ async function analyze(opts={}){
   days:x.days.map(d=>({date:d.date,snapshots:d.synoptic_snapshots
    .filter(s=>/T12:00/.test(s.valid_time))
    .map(s=>({time:s.valid_time,regions:s.regions.filter(r=>
-    ['Eastern Mediterranean','Southern Golan','Central Israel'].includes(r.name))}))}))
+    ['Eastern Mediterranean','Southern Golan'].includes(r.name))}))}))
  }));
  return {
   kind:'synoptic_multi_day_forecast',
