@@ -470,8 +470,21 @@ async function send(raw,options={}){
   }
   else throw Error('המודל החזיר פעולה לא מאושרת');
   bubble.textContent='מחבר את הנקודות ✨';
-  const responsePrompt='You are Atmos, a careful Hebrew weather assistant. Respond in Hebrew. User question: '+fullQuestion+
-  '\nEarlier dialog:\n'+recent+'\nVERIFIED TOOL OUTPUT (source of numerical truth):\n'+JSON.stringify(result)+
+  // Android's model bridge caps prompts at 16K chars. Keep the full
+  // seven-day model-by-model timeline, reduce only verbose grid snapshots.
+  let evidence=result;
+  if(result?.kind==='synoptic_multi_day_forecast'&&JSON.stringify(result).length>10000){
+    evidence={...result,
+     representative_synoptic_maps:result.representative_synoptic_maps?.map(m=>({
+      model:m.model,days:m.days?.filter((d,i)=>i%2===0)
+     }))};
+  }
+  if(JSON.stringify(evidence).length>11700&&evidence?.kind==='synoptic_multi_day_forecast'){
+    evidence={...evidence,representative_synoptic_maps:
+     evidence.representative_synoptic_maps?.map(m=>({model:m.model,days:m.days?.slice(0,2)}))};
+  }
+  const responsePrompt='You are Atmos, a careful meteorological analyst and natural conversational partner. User question: '+fullQuestion+
+  '\nEarlier dialog:\n'+recent+'\nRETRIEVED TOOL EVIDENCE (source of numerical truth):\n'+JSON.stringify(evidence)+
   '\nAnswer in the USER QUESTION LANGUAGE (Hebrew or English), concisely and naturally. Never expose internal API statuses, debug details, or fabricate observations.'+
   ' For synoptic_multi_day_forecast, this is a genuine MULTI-DAY numerically sampled synoptic analysis over Israel and the eastern Mediterranean, based on model outputs at multiple valid times. Discuss chronological changes in pressure, 500hPa geopotential heights, 850hPa temperature and model rainfall for the NEXT 7 days; discuss model disagreement, likelihood of wet/dry periods, and which days trend more unsettled. Make a grounded interpretation, not a list of numbers. Explain that charts are derived from model fields, not retrieved Wetterzentrale images. Name only model data sources actually available. Earlier model runs are comparable ONLY if earlier_forecast_comparison is non-null with values. Recent commentary is supplementary and only if valid timestamps. For weekly synoptic research allow 2-4 short paragraphs, more than the short 3-sentence limit. No fictional probabilities.'+
   ' For regional_analogue_research: explain these are exploratory regional near-surface analogues based on ERA5 reanalysis, NOT full historic weather-map image matching.'+
