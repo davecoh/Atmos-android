@@ -522,7 +522,9 @@ async function send(raw,options={}){
  }catch(e){
    console.warn('Atmos weather request failed',String(e));
    const problem=String(e?.message||'');
-   let message='לא מצאתי כרגע תשובה מספיק אמינה 🌦️ אפשר לנסות תקופה אחרת או תחנה סמוכה?';
+   let message='לא הצלחתי להשלים את הבדיקה כרגע 🌦️ אפשר לנסות שוב בעוד רגע או לנסח את השאלה אחרת.';
+   if(problem.includes('SYNOPTIC_DATA_UNAVAILABLE'))
+     message='לא הצלחתי לטעון כרגע מספיק מפות מודלים לניתוח אמין של השבוע. אפשר לנסות שוב בעוד כמה דקות.';
    if(problem.includes('IMS_NOT_CONFIGURED')||problem.includes('טוקן שמ״ט'))
      message='חסר לי חיבור לנתוני המדידות. אפשר לבדוק אותו בלשונית היסטוריה.';
    else if(problem.includes('INVALID_DATE_RANGE')||problem.includes('טווח תאריכים'))
