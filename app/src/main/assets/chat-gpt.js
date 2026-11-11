@@ -376,43 +376,23 @@ async function send(raw,options={}){
  const bubble=messages('assistant','רגע, מציץ בעננים ☁️');bubble.classList.add('loading');
  try{
   const now=isoLocal(new Date());
-  const historical=(isHistoricalQuestion(fullQuestion)||
-    /historical (rainfall|temperature|measurements)|rainfall in (19|20)\d{2}|last month|rain last year|past observations/i.test(fullQuestion))&&
-    !/דומ|מפה|מפות|מודל|תחזית|סיכוי|הסתברות|chance|probabilit|analog|similar|forecast|weather map|pattern/i.test(fullQuestion);
-  let stations=[];
+  const recent=history.slice(-8).map(x=>x.role+': '+x.text).join('\n');
   const observedIntent=nationwideObservedQuestion(fullQuestion);
   const nationwideIntent=nationwideForecastQuestion(fullQuestion)&&!observedIntent;
-  if(historical&&!nationwideIntent&&!observedIntent){
-    bubble.textContent='מוציא מטרייה לנתונים ☔';
-    stations=await requireIMSStations();
-  }else if(isStationDirectoryQuestion(fullQuestion)&&window.AtmosIMS?.isConfigured()){
-    try{stations=stationList(await window.imsRequest(''));}catch(e){stations=[];}
-  }
-  if(isStationDirectoryQuestion(fullQuestion)){
-    const names=stations.slice(0,35).map(x=>x.name+' (מספר '+x.id+')');
-    const answer='תחנות שמ״ט זמינות ('+stations.length+' בסך הכול):\\n'+names.join('\\n')+
-      (stations.length>names.length?'\\n… ותחנות נוספות.':'');
-    bubble.textContent=answer;history.push({role:'assistant',text:answer});history=history.slice(-10);
-    if(spoken)window.AtmosVoiceUI?.onAnswer(answer,true);
-    return;
-  }
-  const list=stations.slice(0,180).map(s=>s.id+':'+s.name+(s.location?' @'+s.location.latitude+','+s.location.longitude:'')).join('; ');
-  const recent=history.slice(-6).map(x=>x.role+': '+x.text).join('\n');
-  const knownPlace=explicitPlaceInQuestion(fullQuestion,stations);
-  const planning='You are an Atmos weather query planner for Israel. Today is '+now+'. User request (including previous context): '+fullQuestion+
-   '\\nPrior dialogue: '+recent+'\\nIMS station IDs and names: '+list+
-   '\\nHistorical observations required: '+historical+
-   '. Place without exact station match in the user question: '+(knownPlace||'none')+
-   '. Reply ONLY with a JSON object: action historical, forecast, analogues or general.'+
-   ' This is an OPEN-ENDED weather assistant, NOT limited to IMS. Historical observations at specific past dates -> historical (IMS).'+
-   ' If the question asks WHERE in ISRAEL rain is forecast to be strongest (e.g. tonight), use action nationwide_rain, with period tonight/today/tomorrow/weekend. Do not ask for a town: compare forecast data for all regions. If the question asks where rain WAS MEASURED last night across Israel, use nationwide_observed. All numerical data is retrieved by tools and is NOT in your model memory.'+
-   ' Future rain or temperature trends -> forecast. Historical *similar weather patterns* / analog weather maps / similar pressure setups in past seasons -> analogues.'+
-   ' For analogues include place as a city or town, date as future ISO YYYY-MM-DD within the next 7 days. For forecast include place and date as well.'+
-   ' Do not route forecast questions to IMS simply because they mention rainfall. General questions should work without IMS.'+
-   ' For historical measurements select historical. Do not ask the user to provide stations or raw data; the application fetches them.'+
-   ' For a requested town with no exact weather station, set match_strategy=nearest, place=the exact town name, stations=[]; the app geocodes it and calculates the closest station with the requested metric. Do not invent station coordinates.'+
-   ' For historical provide metric rain,temp,max,min,wind,gust,humid, stations array of 1 or 2 numeric IDs FROM THE LIST, periods array of 1 or 2 objects {from,to} ISO dates (each at most 186 days). Preserve years including 1992.'+
-   ' For forecast use action forecast and include place and future date; for a requested multiple-day period include end_date. "Southern Golan"/"דרום הגולן" is a recognized region; use it as place, never ask to name a village. When asking for analysis of forecast precipitation maps use forecast, NOT historical or analogues. Use analogues only if a comparison with past similar atmospheric patterns is explicitly requested. For general explanations choose general. Never invent stations or measurements.';
+  const synopticIntent=/(?:מפות|סינופט|מפות מודלים|מודלים|מערכות מזג|מגמ(?:ה|ות)|מה צפוי|השבוע הקרוב|שבוע הבא|בימים הקרובים|next week|coming week|synoptic|weather maps|forecast maps|weather systems|model runs|next seven days|next 7 days|week ahead)/i.test(fullQuestion)&&
+   /(?:ישראל|בארץ|האזור|המזרח התיכון|כללי|באזור|שבוע|ימים|מגמ|מערכ|Israel|Middle East|week|synoptic|maps|systems)/i.test(fullQuestion)&&
+   !/(?:היסטורי|בעבר|דומים בעבר|analog|historical|similar past)/i.test(fullQuestion);
+  let stations=[];
+  const planning='You are a tool router for Atmos, a FREESTYLE conversational weather analyst. Israel local date is '+now+'. '+
+   'Understand the whole conversation without inventing data. User request: '+fullQuestion+
+   '\nRecent dialogue:\n'+recent+
+   '\nOutput ONLY one short valid JSON object containing action and necessary parameters. Actions: general, synoptic, forecast, nationwide_rain, nationwide_observed, analogues, historical. '+
+   'SYNOPTIC: open-ended questions about next week, general outlook in Israel, synoptic maps, model runs, evolving weather systems, broader trends; choose synoptic even when no village is specified. '+
+   'FORECAST: specific upcoming weather for one town/region or date; use forecast with place and ISO date when specified. '+
+   'NATIONWIDE_RAIN: where in Israel will it rain most tonight/tomorrow; set period. NATIONWIDE_OBSERVED: where has it rained across Israel or last night, actual measurements. '+
+   'ANALOGUES: explicitly asks for similar past weather patterns. HISTORICAL: explicitly requests actual past observed rain/temperature/weather station measurements; provide metric and periods ISO, place or station name, do not invent station IDs. '+
+   'GENERAL: any other conversational question, explanation, or brainstorming. No station required. Do not demand a station for any forecast or synoptic question. '+
+   'Never present knowledge of current maps or weather without tool output. "Southern Golan" is a region. For a seven-day map analysis select synoptic (no place necessary).';
   let plan;
   try{plan=jsonText(await callGPT(planning));}catch(e){throw Error('לא ניתן לפענח תוכנית שאילתות מהמודל: '+e.message)}
   if(observedIntent){
@@ -422,6 +402,8 @@ async function send(raw,options={}){
     // Guardrail: countrywide forecast questions must use nationwide data,
     // even if the planning model confuses a comparison with a local query.
     plan={action:'nationwide_rain',period:inferNationalPeriod(fullQuestion)};
+  }else if(synopticIntent&&plan.action!=='analogues'&&plan.action!=='historical'){
+    plan={action:'synoptic'};
   }
   if(plan.action==='historical'&&!stations.length){
     bubble.textContent='מחפש תחנות מדידה 🌦️';
@@ -431,13 +413,19 @@ async function send(raw,options={}){
       '. IMS station list: '+options+
       '. Choose only JSON action historical with metric, stations numeric IDs, and periods ISO dates. If the requested town is not a listed station, set match_strategy nearest, place exact town name, stations empty. Do not invent data.'));
   }
-  if(historical&&knownPlace&&plan.action==='historical'){
+  const knownPlace=explicitPlaceInQuestion(fullQuestion,stations);
+  if(plan.action==='historical'&&knownPlace){
     plan.match_strategy='nearest';
     plan.place=knownPlace;
     plan.stations=[]; // Never claim an unrelated station belongs to this town.
   }
   let result;
   if(plan.action==='historical'){bubble.textContent='מחפש טיפות של מידע 💧';result=await historyTool(plan,stations);}
+  else if(plan.action==='synoptic'){
+    bubble.textContent='קורא מפות מודלים לכמה ימים ומחפש מגמות 🗺️';
+    if(!window.AtmosSynoptic?.analyze)throw Error('SYNOPTIC_DATA_UNAVAILABLE');
+    result=await window.AtmosSynoptic.analyze();
+  }
   else if(plan.action==='nationwide_observed'){
     bubble.textContent='משווה מדידות גשם מתחנות שמ״ט ברחבי הארץ 🌧️';
     if(!window.AtmosNationwide?.observedLastNight)throw Error('NATIONAL_OBSERVATIONS_UNAVAILABLE');
@@ -476,21 +464,16 @@ async function send(raw,options={}){
     result=await analogueTool(plan);
   }
   else if(plan.action==='general'){
-    if(historical&&stations.length&&!isStationDirectoryQuestion(fullQuestion)){
-      bubble.textContent='עוד רגע, מסדר את העננים ☁️';
-      const retry='Return only JSON. Weather station data exists in the app, not your model memory. Question: '+fullQuestion+
-      '. Station IDs and Hebrew names: '+list+
-      '. Choose action historical, metric and stations numeric IDs from list, periods ISO from/to. Never request the station list from user. If location cannot be matched, choose general with a short clarification.';
-      const next=jsonText(await callGPT(retry));
-      if(next.action==='historical')result=await historyTool(next,stations);
-      else throw Error('לא זוהתה תחנה מתאימה. בחר תחנה המופיעה בלשונית היסטוריה ונסה שוב.');
-    }else result={kind:'general',note:'No weather database queried',answer:String(plan.answer||'לא נבחרה שאילתה')};
+    // Free conversation: no automatic IMS lookup, no artificial station prompts.
+    result={kind:'general_conversation',note:'No live weather/map source queried for this message.',
+      instruction:'Answer the conversational question naturally. For up-to-date weather claims, offer a synoptic/forecast analysis instead of fabricating recent data.'};
   }
   else throw Error('המודל החזיר פעולה לא מאושרת');
   bubble.textContent='מחבר את הנקודות ✨';
   const responsePrompt='You are Atmos, a careful Hebrew weather assistant. Respond in Hebrew. User question: '+fullQuestion+
   '\nEarlier dialog:\n'+recent+'\nVERIFIED TOOL OUTPUT (source of numerical truth):\n'+JSON.stringify(result)+
   '\nAnswer in the USER QUESTION LANGUAGE (Hebrew or English), concisely and naturally. Never expose internal API statuses, debug details, or fabricate observations.'+
+  ' For synoptic_multi_day_forecast, this is a genuine MULTI-DAY numerically sampled synoptic analysis over Israel and the eastern Mediterranean, based on model outputs at multiple valid times. Discuss chronological changes in pressure, 500hPa geopotential heights, 850hPa temperature and model rainfall for the NEXT 7 days; discuss model disagreement, likelihood of wet/dry periods, and which days trend more unsettled. Make a grounded interpretation, not a list of numbers. Explain that charts are derived from model fields, not retrieved Wetterzentrale images. Name only model data sources actually available. Earlier model runs are comparable ONLY if earlier_forecast_comparison is non-null with values. Recent commentary is supplementary and only if valid timestamps. For weekly synoptic research allow 2-4 short paragraphs, more than the short 3-sentence limit. No fictional probabilities.'+
   ' For regional_analogue_research: explain these are exploratory regional near-surface analogues based on ERA5 reanalysis, NOT full historic weather-map image matching.'+
   ' Identify actual analogue dates and ERA5 rain amounts, and if available the forecast model estimated precipitation and maximum hourly precipitation probability.'+
   ' NEVER turn the wet-day count among the top analogues into a calibrated rain probability; it is just a tiny retrospective comparison.'+
