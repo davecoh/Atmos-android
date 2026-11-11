@@ -13,8 +13,13 @@ const jsonText=s=>{let t=String(s||'').trim().replace(/^\x60\x60\x60(?:json)?\s*
 function status(v){$('gptStatus').textContent=v}
 function model(){return $('gptModel').value}
 function callGPT(prompt){return new Promise((resolve,reject)=>{
- const id='ai'+(++seq);pending.set(id,{resolve,reject});
- getNative().ask(prompt,model(),id);
+ if(!prompt||prompt.length>15600){reject(Error('TOOL_EVIDENCE_TOO_LONG'));return;}
+ const id='ai'+(++seq);
+ const timer=setTimeout(()=>{
+  if(pending.has(id)){pending.delete(id);reject(Error('AI_TIMEOUT'));}
+ },100000);
+ pending.set(id,{resolve:v=>{clearTimeout(timer);resolve(v);},reject:e=>{clearTimeout(timer);reject(e);}});
+ try{getNative().ask(prompt,model(),id);}catch(e){clearTimeout(timer);pending.delete(id);reject(e);}
 });}
 window.atmosAIResult=(id,result,error)=>{const p=pending.get(id);if(!p)return;pending.delete(id);if(error)p.reject(Error(error));else p.resolve(result);};
 window.atmosModelsResult=(id,raw,error)=>{
@@ -499,6 +504,15 @@ async function send(raw,options={}){
   ' When near-station fallback is used, disclose the station name and distance. If data are missing, state uncertainty and offer a relevant next step.';
   const answer=await callGPT(responsePrompt);
   bubble.textContent=answer;
+  if(result?.kind==='synoptic_multi_day_forecast'){
+   const refs=document.createElement('div');
+   refs.className='precip-links';
+   for(const source of result.original_maps||[]){
+    const link=document.createElement('a');link.href=source.url;link.target='_blank';
+    link.rel='noopener noreferrer';link.textContent=source.name;refs.appendChild(link);
+   }
+   bubble.insertAdjacentElement('afterend',refs);
+  }
   if(result?.kind==='combined_forecast_map_research'&&result.precipitation_maps){
     try{window.AtmosPrecipMaps?.render(result.precipitation_maps,bubble);}catch(err){console.warn('Map display unavailable',String(err));}
   }
