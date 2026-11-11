@@ -478,13 +478,13 @@ async function send(raw,options={}){
   // Android's model bridge caps prompts at 16K chars. Keep the full
   // seven-day model-by-model timeline, reduce only verbose grid snapshots.
   let evidence=result;
-  if(result?.kind==='synoptic_multi_day_forecast'&&JSON.stringify(result).length>10000){
+  if(result?.kind==='synoptic_multi_day_forecast'&&JSON.stringify(result).length>8000){
     evidence={...result,
      representative_synoptic_maps:result.representative_synoptic_maps?.map(m=>({
       model:m.model,days:m.days?.filter((d,i)=>i%2===0)
      }))};
   }
-  if(JSON.stringify(evidence).length>11700&&evidence?.kind==='synoptic_multi_day_forecast'){
+  if(JSON.stringify(evidence).length>8500&&evidence?.kind==='synoptic_multi_day_forecast'){
     evidence={...evidence,representative_synoptic_maps:
      evidence.representative_synoptic_maps?.map(m=>({model:m.model,days:m.days?.slice(0,2)}))};
   }
