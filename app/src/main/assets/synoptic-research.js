@@ -128,8 +128,9 @@ async function analyze(opts={}){
  const details=valid.map(x=>({
   model:x.name,
   days:x.days.map(d=>({date:d.date,snapshots:d.synoptic_snapshots
-   .filter(s=>/T06:00|T18:00/.test(s.valid_time))
-   .map(s=>({time:s.valid_time,regions:s.regions}))}))
+   .filter(s=>/T12:00/.test(s.valid_time))
+   .map(s=>({time:s.valid_time,regions:s.regions.filter(r=>
+    ['Eastern Mediterranean','Northern Israel','Southern Golan','Central Israel'].includes(r.name))}))}))
  }));
  return {
   kind:'synoptic_multi_day_forecast',
