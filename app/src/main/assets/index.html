@@ -31,6 +31,7 @@ let latestNews={checked_at:null,posts:[],sources:[]};
 window.atmosNewsResult=(id,payload)=>{
  if(id!=='forecast-news')return;
  latestNews=payload||{posts:[],sources:[]};window.latestAtmosNews=latestNews;
+ window.dispatchEvent(new CustomEvent('atmosNewsUpdated',{detail:{checked_at:latestNews.checked_at}}));
  const items=(latestNews.posts||[]).sort((a,b)=>b.time.localeCompare(a.time)).slice(0,6);
  $('newsRefresh').disabled=false;
  const updated=new Date(latestNews.checked_at||Date.now()).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
