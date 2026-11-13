@@ -171,6 +171,24 @@ def main():
             except Exception as error:print(name,'ERROR',repr(error))
     if not bundle['models']:raise SystemExit('No usable full-field model runs; preserving previous data')
     destination=pathlib.Path(args.out);destination.parent.mkdir(parents=True,exist_ok=True)
+    # Save brief previous cycles for run-to-run comparison, not an endless archive.
+    history=[]
+    if destination.exists():
+        try:
+            old=json.loads(destination.read_text(encoding='utf8'))
+            for name,m in old.get('models',{}).items():
+                frames=m.get('frames',[])
+                if frames:
+                    history.append({'model':name,'source_run':frames[0].get('run_utc'),
+                        'frames':[{'valid_utc':x.get('valid_utc'),'fields':{
+                          k:v for k,v in x.get('fields',{}).items() if k in ('mslp_hpa','z500_m')
+                        }} for x in frames[:7]]})
+            history+=old.get('previous_runs',[])
+        except (ValueError,OSError,TypeError):pass
+    existing={(x.get('model'),x.get('source_run')) for x in [
+       {'model':name,'source_run':m['frames'][0]['run_utc']}
+       for name,m in bundle['models'].items() if m['frames']]}
+    bundle['previous_runs']=[x for x in history if (x.get('model'),x.get('source_run')) not in existing][:4]
     staging=destination.with_suffix('.tmp')
     staging.write_text(json.dumps(bundle,separators=(',',':'),allow_nan=False),encoding='utf8')
     staging.replace(destination)
