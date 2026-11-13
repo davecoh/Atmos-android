@@ -1,0 +1,49 @@
+name: Update Full-Field Synoptic Weather Data
+on:
+  schedule:
+    - cron: '20 3,15 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/update_synoptic_fields.py'
+      - '.github/workflows/update-synoptic.yml'
+permissions:
+  contents: write
+concurrency:
+  group: synoptic-data
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install GRIB2 processing libraries
+        run: pip install --disable-pip-version-check numpy requests eccodes ecmwf-opendata
+      - name: Download official model fields and generate grids
+        run: python scripts/update_synoptic_fields.py
+      - name: Validate generated full-field bundle
+        run: |
+          python - <<'PY'
+          import json
+          f=json.load(open('app/src/main/assets/synoptic-fields.json'))
+          assert f['models'], 'No model fields generated'
+          assert len(f['area']['latitudes'])>20
+          for m in f['models'].values():
+            assert len(m['frames'])>=3
+          print('Models available:',list(f['models']))
+          PY
+      - name: Publish regional weather fields
+        run: |
+          git config user.name 'atmos-model-data-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/synoptic-fields.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update ECMWF and GFS synoptic fields [skip ci]"
+            git push
+          fi
