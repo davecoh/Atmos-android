@@ -427,9 +427,18 @@ async function send(raw,options={}){
   let result;
   if(plan.action==='historical'){bubble.textContent='מחפש טיפות של מידע 💧';result=await historyTool(plan,stations);}
   else if(plan.action==='synoptic'){
-    bubble.textContent='קורא מפות מודלים לכמה ימים ומחפש מגמות 🗺️';
-    if(!window.AtmosSynoptic?.analyze)throw Error('SYNOPTIC_DATA_UNAVAILABLE');
-    result=await window.AtmosSynoptic.analyze();
+    bubble.textContent='מנתח שדות אטמוספריים, ריצות ומפות לכמה ימים 🗺️';
+    let full=null,regional=null;
+    const output=await Promise.allSettled([
+      window.AtmosFullFields?.analyze?.()||Promise.reject(Error('FULL_FIELDS_UNAVAILABLE')),
+      window.AtmosSynoptic?.analyze?.()||Promise.reject(Error('SYNOPTIC_UNAVAILABLE'))
+    ]);
+    if(output[0].status==='fulfilled')full=output[0].value;
+    if(output[1].status==='fulfilled')regional=output[1].value;
+    if(!full&&!regional)throw Error('SYNOPTIC_DATA_UNAVAILABLE');
+    // The long-range complete fields are primary; regional precipitation
+    // and dated commentary are corroborating context, never source of maps.
+    result={kind:'multi_source_synoptic',full_fields:full,regional_context:regional};
   }
   else if(plan.action==='nationwide_observed'){
     bubble.textContent='משווה מדידות גשם מתחנות שמ״ט ברחבי הארץ 🌧️';
@@ -478,11 +487,53 @@ async function send(raw,options={}){
   // Android's model bridge caps prompts at 16K chars. Keep the full
   // seven-day model-by-model timeline, reduce only verbose grid snapshots.
   let evidence=result;
+  if(result?.kind==='multi_source_synoptic'){
+    // Only derived field statistics enter the AI prompt; raw GRIB grids
+    // remain available to map visualization and the analysis engine.
+    const full=result.full_fields;
+    const compact=full?{
+      kind:full.kind,generated_utc:full.generated_utc,grid_size:full.grid_size,
+      resolution_degrees:full.resolution_degrees,distinct_models:full.distinct_models,
+      newest_runs:full.newest_runs.map(run=>({
+       model:run.model,run_utc:run.run_utc,
+       frames:run.spatial_fields_by_valid_time.slice(0,11).map(frame=>({
+        time:frame.valid_utc,
+        eastern_med:{mslp:frame.eastern_med?.pressure_hpa?.mean,
+          low:frame.eastern_med?.pressure_hpa?.lowest_point,
+          z500:frame.eastern_med?.height_500hpa_m?.mean},
+        israel:{mslp:frame.israel?.pressure_hpa?.mean,
+          z500:frame.israel?.height_500hpa_m?.mean,
+          t850:frame.israel?.temp_850hpa_c?.mean},
+        north:{mslp:frame.north?.pressure_hpa?.mean},
+        south_golan:{mslp:frame.south_golan?.pressure_hpa?.mean}
+       }))
+      })),
+      previous_model_cycles:full.previous_model_cycles,
+      forecast_note:full.forecast_note,critical_caveats:full.critical_caveats
+    }:null;
+    const sample=result.regional_context;
+    evidence={kind:result.kind,full_fields:compact,
+      regional_forecast:sample?{
+       available_models:sample.available_models,
+       daily_model_agreement:sample.daily_model_agreement,
+       earlier_forecast_comparison:sample.earlier_forecast_comparison,
+       recent_weather_commentary:sample.recent_weather_commentary
+      }:null};
+  }
   if(result?.kind==='synoptic_multi_day_forecast'&&JSON.stringify(result).length>8000){
     evidence={...result,
      representative_synoptic_maps:result.representative_synoptic_maps?.map(m=>({
       model:m.model,days:m.days?.filter((d,i)=>i%2===0)
      }))};
+  }
+  if(evidence?.kind==='multi_source_synoptic'&&JSON.stringify(evidence).length>8500){
+    if(evidence.full_fields)evidence.full_fields.previous_model_cycles=
+      evidence.full_fields.previous_model_cycles?.slice(0,2);
+    if(evidence.regional_forecast)evidence.regional_forecast.daily_model_agreement=
+      evidence.regional_forecast.daily_model_agreement?.slice(0,7);
+    if(evidence.full_fields)evidence.full_fields.newest_runs=evidence.full_fields.newest_runs.map(run=>({
+      ...run,frames:run.frames.filter((x,i)=>i%2===0)
+    }));
   }
   if(JSON.stringify(evidence).length>8500&&evidence?.kind==='synoptic_multi_day_forecast'){
     evidence={...evidence,representative_synoptic_maps:
@@ -491,6 +542,7 @@ async function send(raw,options={}){
   const responsePrompt='You are Atmos, a careful meteorological analyst and natural conversational partner. User question: '+fullQuestion+
   '\nEarlier dialog:\n'+recent+'\nRETRIEVED TOOL EVIDENCE (source of numerical truth):\n'+JSON.stringify(evidence)+
   '\nAnswer in the USER QUESTION LANGUAGE (Hebrew or English), concisely and naturally. Never expose internal API statuses, debug details, or fabricate observations.'+
+  ' For multi_source_synoptic: PRIMARY evidence = official full 2D gridded ECMWF and NOAA GFS data, if full_fields is non-null. Interpret changes in sea level pressure and 500hPa heights, possible troughs/ridges and 850hPa temperature across the eastern Mediterranean and Israel. Compare models by valid forecast time and previous runs only when included. Daily model rainfall from regional_forecast is separate numeric context, NOT observed radar. Do not invent source runs or exact probabilities. If full_fields is null, explicitly say the full map archive is temporarily unavailable and you used regional model samples instead. Explain uncertainties conversationally. Make a 7-day narrative, not merely an array of numbers. '+ 
   ' For synoptic_multi_day_forecast, this is a genuine MULTI-DAY numerically sampled synoptic analysis over Israel and the eastern Mediterranean, based on model outputs at multiple valid times. Discuss chronological changes in pressure, 500hPa geopotential heights, 850hPa temperature and model rainfall for the NEXT 7 days; discuss model disagreement, likelihood of wet/dry periods, and which days trend more unsettled. Make a grounded interpretation, not a list of numbers. Explain that charts are derived from model fields, not retrieved Wetterzentrale images. Name only model data sources actually available. Earlier model runs are comparable ONLY if earlier_forecast_comparison is non-null with values. Recent commentary is supplementary and only if valid timestamps. For weekly synoptic research allow 2-4 short paragraphs, more than the short 3-sentence limit. No fictional probabilities.'+
   ' For regional_analogue_research: explain these are exploratory regional near-surface analogues based on ERA5 reanalysis, NOT full historic weather-map image matching.'+
   ' Identify actual analogue dates and ERA5 rain amounts, and if available the forecast model estimated precipitation and maximum hourly precipitation probability.'+
@@ -504,6 +556,9 @@ async function send(raw,options={}){
   ' When near-station fallback is used, disclose the station name and distance. If data are missing, state uncertainty and offer a relevant next step.';
   const answer=await callGPT(responsePrompt);
   bubble.textContent=answer;
+  if(result?.kind==='multi_source_synoptic'&&result.full_fields){
+    try{window.AtmosFullFields?.renderMap(result.full_fields,bubble);}catch(err){console.warn('Full field map visual unavailable',String(err));}
+  }
   if(result?.kind==='synoptic_multi_day_forecast'){
    const refs=document.createElement('div');
    refs.className='precip-links';
