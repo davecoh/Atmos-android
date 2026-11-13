@@ -19,8 +19,10 @@ jobs:
           gradle-version: '8.10.2'
       - name: Validate JavaScript
         run: |
-          node --check app/src/main/assets/chat-engine.js
-          node --check app/src/main/assets/chat-gpt.js
+          for script in app/src/main/assets/*.js; do
+            echo "Checking ${script}"
+            node --check "${script}"
+          done
           python3 - <<'PY'
           import pathlib, re, subprocess, tempfile
           src = pathlib.Path('app/src/main/assets/index.html').read_text()
